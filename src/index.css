@@ -1,0 +1,2 @@
+/* Tourena global styles — Tailwind handles everything via CDN in index.html */
+*, *::before, *::after { box-sizing: border-box; }
