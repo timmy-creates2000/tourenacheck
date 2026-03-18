@@ -94,7 +94,8 @@ function AuthGuard({ children }) {
     if (!user) navigate('/login', { replace: true, state: { from: location } })
   }, [user, loading])
 
-  if (loading) return <Splash />
+  // If we have a cached user, render immediately — no splash
+  if (!user && loading) return <Splash />
   if (!user) return null
   return children
 }
@@ -139,18 +140,14 @@ function AppLayout({ children }) {
   )
 }
 
-// Root: show landing to guests, redirect logged-in users to their dashboard
 function RootRoute() {
   const { user, profile, loading } = useAuth()
 
-  if (loading) return <Splash />
+  // No cached user and still loading — show splash briefly
+  if (!user && loading) return <Splash />
 
-  // Not logged in — show landing page
   if (!user) return <Landing />
-
-  // Logged in but profile not loaded yet — wait briefly then redirect to discover
   if (!profile) return <Navigate to="/discover" replace />
-
   if (profile.is_admin) return <Navigate to="/admin" replace />
   if (profile.is_moderator) return <Navigate to="/mod" replace />
   if (profile.role === 'organizer') return <Navigate to="/my-tournaments" replace />
@@ -159,7 +156,7 @@ function RootRoute() {
 
 function HomeRedirect() {
   const { profile, loading, user } = useAuth()
-  if (loading) return <Splash />
+  if (!user && loading) return <Splash />
   if (!user) return <Navigate to="/" replace />
   if (!profile) return <Navigate to="/discover" replace />
   if (profile.is_admin) return <Navigate to="/admin" replace />

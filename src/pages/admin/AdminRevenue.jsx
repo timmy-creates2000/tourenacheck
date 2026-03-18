@@ -82,7 +82,7 @@ export default function AdminRevenue() {
 
       // Platform revenue (commissions + practice fees)
       let rq = supabase.from('platform_revenue')
-        .select('*, users(id, username, avatar_url)')
+        .select('*, user_id(id, username, avatar_url)')
         .order('created_at', { ascending: false })
       if (since) rq = rq.gte('created_at', since)
       const { data: revData, error: e1 } = await rq
@@ -90,7 +90,7 @@ export default function AdminRevenue() {
 
       // All coin purchases (for fiat collected)
       let pq = supabase.from('coin_transactions')
-        .select('id, type, amount_tc, amount_fiat, currency, created_at, users(id, username, avatar_url)')
+        .select('id, type, amount_tc, amount_fiat, currency, created_at, user_id(id, username, avatar_url)')
         .eq('type', 'purchase')
         .eq('status', 'confirmed')
         .order('created_at', { ascending: false })
@@ -100,7 +100,7 @@ export default function AdminRevenue() {
 
       // All completed withdrawals — include flutterwave_transfer_fee_fiat
       let wq = supabase.from('withdrawals')
-        .select('id, net_fiat, flutterwave_transfer_fee_fiat, currency, status, created_at, users(id, username, avatar_url)')
+        .select('id, net_fiat, flutterwave_transfer_fee_fiat, currency, status, created_at, user_id(id, username, avatar_url)')
         .in('status', ['completed', 'processed'])
         .order('created_at', { ascending: false })
       if (since) wq = wq.gte('created_at', since)
@@ -110,7 +110,7 @@ export default function AdminRevenue() {
       // Recent activity feed (last 20 across all types)
       const { data: activityData } = await supabase
         .from('coin_transactions')
-        .select('id, type, amount_tc, amount_fiat, description, created_at, users(id, username, avatar_url)')
+        .select('id, type, amount_tc, amount_fiat, description, created_at, user_id(id, username, avatar_url)')
         .order('created_at', { ascending: false })
         .limit(20)
 
@@ -367,7 +367,7 @@ export default function AdminRevenue() {
               ) : recentActivity.map(tx => (
                 <div key={tx.id} className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-0">
                   <div className="flex items-center gap-2 min-w-0">
-                    {tx.users && <Avatar user={tx.users} size={24} />}
+                    {tx.user_id && <Avatar user={tx.user_id} size={24} />}
                     <div className="min-w-0">
                       <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${TX_TYPE_COLORS[tx.type] ?? 'bg-gray-600 text-gray-200'}`}>
                         {tx.type?.replace(/_/g, ' ')}
@@ -405,7 +405,7 @@ export default function AdminRevenue() {
           ) : revenue.map(r => (
             <div key={r.id} className="flex items-center justify-between p-4 hover:bg-surface2 transition-colors">
               <div className="flex items-center gap-3">
-                {r.users && <Avatar user={r.users} size={32} showName />}
+                {r.user_id && <Avatar user={r.user_id} size={32} showName />}
                 <div>
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${TX_TYPE_COLORS[r.revenue_type] ?? 'bg-gray-600 text-gray-200'}`}>
                     {r.revenue_type?.replace(/_/g, ' ')}
