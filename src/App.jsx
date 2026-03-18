@@ -94,14 +94,22 @@ function AuthGuard({ children }) {
     if (!user) navigate('/login', { replace: true, state: { from: location } })
   }, [user, loading])
 
-  // If we have a cached user, render immediately — no splash
-  if (!user && loading) return <Splash />
-  if (!user) return null
-  return children
+  // Have cached user → render immediately, no splash at all
+  if (user) return children
+  // No cached user, still checking → brief splash
+  if (loading) return <Splash />
+  // Confirmed no session → null (navigate effect will redirect)
+  return null
 }
 
 function AdminGuard({ children }) {
-  const { profile } = useAuth()
+  const { profile, loading } = useAuth()
+  // Still loading (verifying session) — show skeleton, not access denied
+  if (loading && !profile) return (
+    <div className="min-h-screen bg-bg flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
   if (!profile?.is_admin) return (
     <div className="min-h-screen bg-bg flex items-center justify-center">
       <div className="text-center">
@@ -115,9 +123,14 @@ function AdminGuard({ children }) {
 }
 
 function ModeratorGuard({ permission, children }) {
-  const { profile } = useAuth()
+  const { profile, loading } = useAuth()
+  if (loading && !profile) return (
+    <div className="min-h-screen bg-bg flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
   const perms = profile?.moderator_permissions ?? {}
-  const allowed = profile?.is_admin || profile?.is_moderator && (!permission || perms[permission])
+  const allowed = profile?.is_admin || (profile?.is_moderator && (!permission || perms[permission]))
   if (!allowed) return (
     <div className="min-h-screen bg-bg flex items-center justify-center">
       <div className="text-center">
@@ -143,15 +156,22 @@ function AppLayout({ children }) {
 function RootRoute() {
   const { user, profile, loading } = useAuth()
 
-  // No cached user and still loading — show splash briefly
-  if (!user && loading) return <Splash />
+  // Cached user + cached profile → redirect instantly
+  if (user && profile) {
+    if (profile.is_admin) return <Navigate to="/admin" replace />
+    if (profile.is_moderator) return <Navigate to="/mod" replace />
+    if (profile.role === 'organizer') return <Navigate to="/my-tournaments" replace />
+    return <Navigate to="/discover" replace />
+  }
 
-  if (!user) return <Landing />
-  if (!profile) return <Navigate to="/discover" replace />
-  if (profile.is_admin) return <Navigate to="/admin" replace />
-  if (profile.is_moderator) return <Navigate to="/mod" replace />
-  if (profile.role === 'organizer') return <Navigate to="/my-tournaments" replace />
-  return <Navigate to="/discover" replace />
+  // Cached user but profile not yet loaded
+  if (user) return <Navigate to="/discover" replace />
+
+  // No user, still checking
+  if (loading) return <Splash />
+
+  // Confirmed guest
+  return <Landing />
 }
 
 function HomeRedirect() {
