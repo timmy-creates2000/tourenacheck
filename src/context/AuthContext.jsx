@@ -34,6 +34,16 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let mounted = true
 
+    // Immediately resolve loading if no session exists
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return
+      if (!session) {
+        setUser(null)
+        setProfile(null)
+        setLoading(false)
+      }
+    })
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
 
@@ -42,8 +52,6 @@ export function AuthProvider({ children }) {
         setUser(currentUser)
 
         if (currentUser) {
-          // INITIAL_SESSION = page load with existing session (no ensureProfile needed)
-          // SIGNED_IN = actual new login (OAuth or password)
           if (event === 'SIGNED_IN') await ensureProfile(currentUser)
           await fetchProfile(currentUser.id)
         } else {

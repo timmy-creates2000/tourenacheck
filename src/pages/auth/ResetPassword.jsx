@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import Button from '../../components/ui/Button'
@@ -9,10 +9,24 @@ export default function ResetPassword() {
   const navigate = useNavigate()
   const [form, setForm] = useState({ password: '', confirm: '' })
   const [loading, setLoading] = useState(false)
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    // Listen for the PASSWORD_RECOVERY event Supabase fires when the reset link is clicked
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') setReady(true)
+    })
+    // Also check if there's already a session (user landed here with a valid token)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setReady(true)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()
     if (form.password !== form.confirm) { toast.error('Passwords do not match'); return }
+    if (form.password.length < 6) { toast.error('Password must be at least 6 characters'); return }
     setLoading(true)
     const { error } = await supabase.auth.updateUser({ password: form.password })
     setLoading(false)
@@ -28,12 +42,21 @@ export default function ResetPassword() {
           <h1 className="text-4xl font-black mb-2"><span className="text-white">Tour</span><span className="text-accent">ena</span></h1>
         </div>
         <div className="bg-surface border border-white/[0.08] rounded-2xl p-8">
-          <h2 className="text-xl font-bold text-white mb-6">Set New Password</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input label="New Password" type="password" placeholder="Min 6 characters" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} required />
-            <Input label="Confirm Password" type="password" placeholder="••••••••" value={form.confirm} onChange={e => setForm(p => ({ ...p, confirm: e.target.value }))} required />
-            <Button type="submit" loading={loading} className="w-full">Update Password</Button>
-          </form>
+          {!ready ? (
+            <div className="text-center space-y-3">
+              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+              <p className="text-muted text-sm">Verifying reset link...</p>
+            </div>
+          ) : (
+            <>
+              <h2 className="text-xl font-bold text-white mb-6">Set New Password</h2>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <Input label="New Password" type="password" placeholder="Min 6 characters" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} required />
+                <Input label="Confirm Password" type="password" placeholder="••••••••" value={form.confirm} onChange={e => setForm(p => ({ ...p, confirm: e.target.value }))} required />
+                <Button type="submit" loading={loading} className="w-full">Update Password</Button>
+              </form>
+            </>
+          )}
         </div>
       </div>
     </div>
