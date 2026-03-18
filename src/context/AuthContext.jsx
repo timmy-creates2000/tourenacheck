@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext(null)
@@ -7,50 +7,54 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const loadingTimerRef = useRef(null)
 
-  const fetchProfile = useCallback(async (userId, retries = 3) => {
-    for (let i = 0; i < retries; i++) {
-      try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', userId)
-          .single()
-        if (data) {
-          setProfile(data)
-          return data
-        }
-        // PGRST116 = no rows found — no point retrying
-        if (error?.code === 'PGRST116') break
-      } catch (_) {
-        // network error — retry
+  // Hard safety net — never stay loading more than 4 seconds
+  function startLoadingTimeout() {
+    if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current)
+    loadingTimerRef.current = setTimeout(() => setLoading(false), 4000)
+  }
+
+  function stopLoading() {
+    if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current)
+    setLoading(false)
+  }
+
+  const fetchProfile = useCallback(async (userId) => {
+    try {
+      const { data } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single()
+      if (data) {
+        setProfile(data)
+        return data
       }
-      if (i < retries - 1) await new Promise(r => setTimeout(r, 500))
-    }
+    } catch (_) {}
     setProfile(null)
     return null
   }, [])
 
   useEffect(() => {
     let mounted = true
+    startLoadingTimeout()
 
-    // Immediately resolve loading if no session exists
+    // Fast path: if no session, resolve immediately
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!mounted) return
       if (!session) {
         setUser(null)
         setProfile(null)
-        setLoading(false)
+        stopLoading()
       }
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
-
       try {
         const currentUser = session?.user ?? null
         setUser(currentUser)
-
         if (currentUser) {
           if (event === 'SIGNED_IN') await ensureProfile(currentUser)
           await fetchProfile(currentUser.id)
@@ -61,12 +65,13 @@ export function AuthProvider({ children }) {
         console.error('Auth state change error:', err)
         setProfile(null)
       } finally {
-        if (mounted) setLoading(false)
+        if (mounted) stopLoading()
       }
     })
 
     return () => {
       mounted = false
+      if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current)
       subscription.unsubscribe()
     }
   }, [fetchProfile])

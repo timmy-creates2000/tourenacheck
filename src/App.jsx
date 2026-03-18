@@ -6,7 +6,6 @@ import Navbar from './components/layout/Navbar'
 import BottomNav from './components/layout/BottomNav'
 import Landing from './pages/Landing'
 import tourenaIcon from '../image/tourena-icon.png'
-
 // Auth
 import Login from './pages/auth/Login'
 import Signup from './pages/auth/Signup'
@@ -73,27 +72,29 @@ import ModReports from './pages/moderator/ModReports'
 import ModCommunities from './pages/moderator/ModCommunities'
 import ModNews from './pages/moderator/ModNews'
 
+function Splash() {
+  return (
+    <div className="min-h-screen bg-bg flex items-center justify-center">
+      <div className="text-center">
+        <img src={tourenaIcon} alt="Tourena" className="w-20 h-20 rounded-2xl mx-auto mb-4" />
+        <h1 className="text-4xl font-black mb-6"><span className="text-white">Toure</span><span className="text-accent">na</span></h1>
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+      </div>
+    </div>
+  )
+}
+
 function AuthGuard({ children }) {
-  const { user, profile, loading } = useAuth()
+  const { user, loading } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
   useEffect(() => {
     if (loading) return
-    if (!user) { navigate('/login', { replace: true }); return }
-    // Everyone is auto-approved now, no pending status
-  }, [user, profile, loading, location.pathname])
+    if (!user) navigate('/login', { replace: true, state: { from: location } })
+  }, [user, loading])
 
-  if (loading) return (
-    <div className="min-h-screen bg-bg flex items-center justify-center">
-      <div className="text-center">
-        <img src={tourenaIcon} alt="Tourena" className="w-20 h-20 rounded-2xl mx-auto mb-4" />
-        <h1 className="text-4xl font-black mb-6 whitespace-nowrap"><span className="text-white">Toure</span><span className="text-accent">na</span></h1>
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-      </div>
-    </div>
-  )
-
+  if (loading) return <Splash />
   if (!user) return null
   return children
 }
@@ -141,17 +142,15 @@ function AppLayout({ children }) {
 // Root: show landing to guests, redirect logged-in users to their dashboard
 function RootRoute() {
   const { user, profile, loading } = useAuth()
-  if (loading) return (
-    <div className="min-h-screen bg-bg flex items-center justify-center">
-      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-    </div>
-  )
+
+  if (loading) return <Splash />
+
+  // Not logged in — show landing page
   if (!user) return <Landing />
-  if (!profile) return (
-    <div className="min-h-screen bg-bg flex items-center justify-center">
-      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-    </div>
-  )
+
+  // Logged in but profile not loaded yet — wait briefly then redirect to discover
+  if (!profile) return <Navigate to="/discover" replace />
+
   if (profile.is_admin) return <Navigate to="/admin" replace />
   if (profile.is_moderator) return <Navigate to="/mod" replace />
   if (profile.role === 'organizer') return <Navigate to="/my-tournaments" replace />
@@ -160,12 +159,9 @@ function RootRoute() {
 
 function HomeRedirect() {
   const { profile, loading, user } = useAuth()
-  if (loading || (user && !profile)) return (
-    <div className="min-h-screen bg-bg flex items-center justify-center">
-      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-    </div>
-  )
+  if (loading) return <Splash />
   if (!user) return <Navigate to="/" replace />
+  if (!profile) return <Navigate to="/discover" replace />
   if (profile.is_admin) return <Navigate to="/admin" replace />
   if (profile.is_moderator) return <Navigate to="/mod" replace />
   if (profile.role === 'organizer') return <Navigate to="/my-tournaments" replace />
