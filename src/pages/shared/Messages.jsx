@@ -86,21 +86,29 @@ export default function Messages() {
   }
 
   async function startConvo(otherUser) {
-    // find or create conversation
     const a = user.id < otherUser.id ? user.id : otherUser.id
     const b = user.id < otherUser.id ? otherUser.id : user.id
+
+    // maybeSingle() returns null (not an error) when no row exists
     let { data: existing } = await supabase.from('conversations')
       .select('*')
-      .eq('participant_a', a).eq('participant_b', b).single()
+      .eq('participant_a', a).eq('participant_b', b).maybeSingle()
+
     if (!existing) {
-      const { data: created } = await supabase.from('conversations')
-        .insert({ participant_a: a, participant_b: b }).select().single()
+      const { data: created, error: createErr } = await supabase
+        .from('conversations')
+        .insert({ participant_a: a, participant_b: b })
+        .select()
+        .single()
+      if (createErr) { toast.error('Could not start conversation'); return }
       existing = created
     }
+
+    if (!existing?.id) { toast.error('Could not start conversation'); return }
+
     setSearch('')
     setSearchResults([])
     await loadConvos()
-    // attach user objects
     const enriched = {
       ...existing,
       participant_a_user: a === user.id ? profile : otherUser,
@@ -110,7 +118,7 @@ export default function Messages() {
   }
 
   async function sendMessage() {
-    if (!text.trim() || !active) return
+    if (!text.trim() || !active?.id) return
     const content = text.trim()
     setText('')
     const { error } = await supabase.from('direct_messages').insert({
