@@ -106,7 +106,7 @@ export default function Communities() {
     <PageWrapper>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <h1 className="text-3xl font-black text-white">Communities</h1>
-        {(profile?.role === 'organizer' || profile?.is_admin) && (
+        {(profile?.role === 'organizer' || profile?.is_admin || profile?.is_host) && (
           <Button onClick={() => setCreating(true)} size="sm">Create Community</Button>
         )}
       </div>

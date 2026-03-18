@@ -12,7 +12,7 @@ import Input from '../../components/ui/Input'
 import WinnerSpotlight from '../../components/tournament/WinnerSpotlight'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { formatTC, formatDateTime, formatDate } from '../../lib/utils'
-import { STATUS_COLORS } from '../../lib/constants'
+import { STATUS_COLORS, WITHDRAWAL_COMMISSION } from '../../lib/constants'
 import { updatePlayerStats } from '../../lib/badges'
 import { activateReferral } from '../../lib/referrals'
 import toast from 'react-hot-toast'
@@ -401,7 +401,7 @@ function RoomChatTab({ tournament, onRefresh }) {
 function FinancialsTab({ tournament: t, participants }) {
   const entryFees = (t.current_participants ?? 0) * (t.entry_fee_tc ?? 0)
   const gross = entryFees - (t.prize_pool_tc ?? 0)
-  const commission = Math.floor(gross * 0.05)
+  const commission = Math.floor(gross * WITHDRAWAL_COMMISSION)
   const net = gross - commission
 
   return (
@@ -424,7 +424,7 @@ function FinancialsTab({ tournament: t, participants }) {
           <div className="flex justify-between"><span className="text-muted">Entry Fees ({t.current_participants} × {formatTC(t.entry_fee_tc ?? 0)})</span><span className="text-white">🪙 {formatTC(entryFees)}</span></div>
           <div className="flex justify-between"><span className="text-muted">Prize Pool</span><span className="text-red-400">- 🪙 {formatTC(t.prize_pool_tc ?? 0)}</span></div>
           <div className="flex justify-between"><span className="text-muted">Gross Earnings</span><span className="text-white">🪙 {formatTC(gross)}</span></div>
-          <div className="flex justify-between"><span className="text-muted">Tourena 5% commission</span><span className="text-red-400">- 🪙 {formatTC(commission)}</span></div>
+          <div className="flex justify-between"><span className="text-muted">Tourena {WITHDRAWAL_COMMISSION * 100}% commission</span><span className="text-red-400">- 🪙 {formatTC(commission)}</span></div>
           <div className="flex justify-between font-bold border-t border-white/10 pt-2 mt-2"><span className="text-white">You Withdraw</span><span className="text-accent">🪙 {formatTC(Math.max(0, net))}</span></div>
         </div>
       </Card>

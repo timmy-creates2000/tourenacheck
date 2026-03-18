@@ -68,7 +68,7 @@ export default function CreateTournament() {
         thumbnail_url,
         banner_url,
         current_participants: 0,
-        status: isDraft ? 'draft' : 'pending_review',
+        status: isDraft ? 'draft' : 'pending_approval',
         platform_fee_tc: isPractice ? PLATFORM_FEE_TC : 0,
         platform_fee_paid: !isDraft && isPractice,
         room_revealed: false,

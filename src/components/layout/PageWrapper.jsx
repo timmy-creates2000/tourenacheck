@@ -1,6 +1,6 @@
 export default function PageWrapper({ children, className = '' }) {
   return (
-    <main className={`max-w-7xl mx-auto px-4 py-8 ${className}`}>
+    <main className={`max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-24 md:pb-8 ${className}`}>
       {children}
     </main>
   )

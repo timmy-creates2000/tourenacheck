@@ -30,7 +30,7 @@ export default function Teams() {
     const [{ data: allTeams }, { data: membership }, { data: invites }] = await Promise.all([
       supabase.from('teams').select('*, captain:captain_id(username, avatar_url)').eq('status', 'active').order('tournaments_won', { ascending: false }),
       supabase.from('team_members').select('team_id, role, teams(*)').eq('user_id', profile.id).single(),
-      supabase.from('team_invites').select('*, team:team_id(id, name, tag, avatar_url), inviter:invited_by(username)').eq('invitee_id', profile.id).eq('status', 'pending'),
+      supabase.from('team_invites').select('*, team:team_id(id, name, tag, avatar_url, member_count), inviter:invited_by(username)').eq('invitee_id', profile.id).eq('status', 'pending'),
     ])
     setTeams(allTeams ?? [])
     setMyTeam(membership?.teams ?? null)

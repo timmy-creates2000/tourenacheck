@@ -52,7 +52,7 @@ export default function Wallet() {
     currency,
     payment_options: 'card,banktransfer,ussd',
     customer: { email: profile?.email, name: profile?.username },
-    customizations: { title: 'Tourena Coins', description: `Purchase ${tcAmount} TC`, logo: '/vite.svg' },
+    customizations: { title: 'Tourena Coins', description: `Purchase ${tcAmount} TC`, logo: `${window.location.origin}/coin.svg` },
   }
 
   const handleFlutterPayment = useFlutterwave(flwConfig)
@@ -83,11 +83,12 @@ export default function Wallet() {
       {/* Balance Card */}
       <Card className="p-6 mb-8 bg-gradient-to-br from-primary/20 to-accent/10 border-primary/30">
         <p className="text-muted text-sm mb-1">Your Balance</p>
-        <div className="flex items-end gap-3 mb-2">
+        <div className="flex items-center gap-3 mb-2">
+          <img src="/coin.svg" alt="TC" className="w-10 h-10" />
           <span className="text-4xl font-black text-white">{formatTC(profile?.coin_balance ?? 0)}</span>
         </div>
         <p className="text-muted text-sm mb-6">≈ {formatFiat(tcToFiat(profile?.coin_balance ?? 0, currency), currency)}</p>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <Button onClick={() => setBuyModal(true)} variant="accent">Buy Coins</Button>
           <Button onClick={() => setWithdrawModal(true)} variant="secondary">Withdraw</Button>
           <Button onClick={() => setGiftModal(true)} variant="ghost">Gift Coins</Button>

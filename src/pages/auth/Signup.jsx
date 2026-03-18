@@ -19,7 +19,7 @@ function GoogleIcon() {
 export default function Signup() {
   const { signUp, signInWithGoogle } = useAuth()
   const navigate = useNavigate()
-  const [form, setForm] = useState({ email: '', password: '', confirm: '', username: '', role: 'player', referralCode: '' })
+  const [form, setForm] = useState({ email: '', password: '', confirm: '', username: '', referralCode: '' })
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState('')
@@ -43,8 +43,8 @@ export default function Signup() {
     if (form.password.length < 6) { setError('Password must be at least 6 characters'); return }
     setLoading(true)
     try {
-      await signUp({ email: form.email, password: form.password, username: form.username, role: form.role, referralCode: form.referralCode })
-      navigate('/pending')
+      await signUp({ email: form.email, password: form.password, username: form.username, referralCode: form.referralCode })
+      navigate('/discover') // Everyone goes straight to discover
     } catch (err) {
       setError(err.message)
     } finally {
@@ -86,18 +86,6 @@ export default function Signup() {
             <Input label="Email" type="email" placeholder="you@example.com" value={form.email} onChange={set('email')} required />
             <Input label="Password" type="password" placeholder="Min 6 characters" value={form.password} onChange={set('password')} required />
             <Input label="Confirm Password" type="password" placeholder="••••••••" value={form.confirm} onChange={set('confirm')} required />
-
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-white/80">I am a...</label>
-              <div className="grid grid-cols-2 gap-3">
-                {['player', 'organizer'].map(r => (
-                  <button key={r} type="button" onClick={() => setForm(p => ({ ...p, role: r }))}
-                    className={`py-3 rounded-xl border text-sm font-semibold capitalize transition-all ${form.role === r ? 'border-primary bg-primary/20 text-white glow-purple' : 'border-white/10 text-muted hover:border-white/20'}`}>
-                    {r === 'player' ? '🎮 Player' : '🎪 Organizer'}
-                  </button>
-                ))}
-              </div>
-            </div>
 
             <Input label="Referral Code (optional)" placeholder="Enter code if you have one" value={form.referralCode} onChange={set('referralCode')} />
             <Button type="submit" loading={loading} className="w-full" size="lg">Create Account</Button>

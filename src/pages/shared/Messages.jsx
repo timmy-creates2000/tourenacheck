@@ -129,7 +129,7 @@ export default function Messages() {
   return (
     <PageWrapper className="max-w-5xl">
       <h1 className="text-3xl font-black text-white mb-6">💬 Messages</h1>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[70vh]">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[calc(100vh-12rem)] md:h-[70vh]">
         {/* Sidebar */}
         <Card className={`flex flex-col overflow-hidden ${active ? 'hidden md:flex' : 'flex'}`}>
           <div className="p-3 border-b border-white/[0.06]">

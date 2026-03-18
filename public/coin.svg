@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <radialGradient id="coinFace" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#FFE566"/>
+      <stop offset="45%" stop-color="#F5A623"/>
+      <stop offset="100%" stop-color="#C47A00"/>
+    </radialGradient>
+    <radialGradient id="coinEdge" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#E8920A"/>
+      <stop offset="100%" stop-color="#9A5C00"/>
+    </radialGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#00000055"/>
+    </filter>
+  </defs>
+  <!-- Coin edge / depth -->
+  <ellipse cx="32" cy="35" rx="28" ry="6" fill="url(#coinEdge)" opacity="0.7"/>
+  <!-- Main coin face -->
+  <circle cx="32" cy="30" r="28" fill="url(#coinFace)" filter="url(#shadow)"/>
+  <!-- Rim highlight -->
+  <circle cx="32" cy="30" r="28" fill="none" stroke="#FFE566" stroke-width="1.5" opacity="0.6"/>
+  <!-- Inner ring -->
+  <circle cx="32" cy="30" r="22" fill="none" stroke="#C47A00" stroke-width="1" opacity="0.5"/>
+  <!-- TC text -->
+  <text x="32" y="36" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="16" fill="#7A3D00" opacity="0.9">TC</text>
+  <!-- Shine highlight -->
+  <ellipse cx="24" cy="20" rx="8" ry="5" fill="white" opacity="0.18" transform="rotate(-30 24 20)"/>
+</svg>

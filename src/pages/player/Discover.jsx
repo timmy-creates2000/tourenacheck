@@ -82,11 +82,11 @@ export default function Discover() {
   return (
     <PageWrapper>
       {/* Hero */}
-      <div className="text-center py-10 mb-8">
-        <h1 className="text-4xl md:text-5xl font-black mb-3">
+      <div className="text-center py-8 sm:py-10 mb-6 sm:mb-8">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black mb-3">
           <span className="gradient-text">Find Your Next Tournament</span>
         </h1>
-        <p className="text-muted text-lg mb-6">Compete, win, and earn Tourena Coins</p>
+        <p className="text-muted text-base sm:text-lg mb-6">Compete, win, and earn Tourena Coins</p>
         <div className="max-w-xl mx-auto relative">
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tournaments or games..."
@@ -115,17 +115,17 @@ export default function Discover() {
       )}
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-6 items-start">
+      <div className="flex gap-2 mb-6 overflow-x-auto scrollbar-hide pb-1 items-start flex-nowrap sm:flex-wrap">
         {/* Game type */}
         <select value={filters.gameType} onChange={e => setFilters(p => ({ ...p, gameType: e.target.value }))}
-          className="bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary">
+          className="flex-shrink-0 bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary">
           <option value="">All Platforms</option>
           {GAME_TYPES.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
         </select>
 
         {/* Entry type */}
         <select value={filters.entry} onChange={e => setFilters(p => ({ ...p, entry: e.target.value }))}
-          className="bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary">
+          className="flex-shrink-0 bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary">
           <option value="">All Entry Types</option>
           <option value="free">Free</option>
           <option value="practice">Practice</option>
@@ -134,16 +134,16 @@ export default function Discover() {
 
         {/* Status */}
         <select value={filters.status} onChange={e => setFilters(p => ({ ...p, status: e.target.value }))}
-          className="bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary">
+          className="flex-shrink-0 bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary">
           <option value="">All Statuses</option>
           <option value="open">Open</option>
           <option value="upcoming">Upcoming</option>
         </select>
 
         {/* Game picker */}
-        <div className="relative">
+        <div className="relative flex-shrink-0">
           <button onClick={() => setShowGamePicker(v => !v)}
-            className={`bg-surface border rounded-lg px-3 py-2 text-sm transition-colors ${filters.game ? 'border-primary text-white' : 'border-white/10 text-muted hover:text-white'}`}>
+            className={`bg-surface border rounded-lg px-3 py-2 text-sm transition-colors whitespace-nowrap ${filters.game ? 'border-primary text-white' : 'border-white/10 text-muted hover:text-white'}`}>
             {filters.game || 'Filter by Game'}
           </button>
           {showGamePicker && (
@@ -173,12 +173,12 @@ export default function Discover() {
 
         {(filters.game || filters.gameType || filters.entry || filters.status) && (
           <button onClick={() => { setFilters({ gameType: '', game: '', mode: '', entry: '', status: '' }); setGameSearch('') }}
-            className="text-xs text-red-400 hover:text-red-300 bg-red-500/10 px-3 py-2 rounded-lg transition-colors">
+            className="flex-shrink-0 text-xs text-red-400 hover:text-red-300 bg-red-500/10 px-3 py-2 rounded-lg transition-colors whitespace-nowrap">
             Clear filters
           </button>
         )}
 
-        <Button variant="secondary" size="sm" onClick={() => setJoinModal(true)}>Join with Code</Button>
+        <Button variant="secondary" size="sm" className="flex-shrink-0" onClick={() => setJoinModal(true)}>Join with Code</Button>
       </div>
 
       {/* Tournament Grid */}

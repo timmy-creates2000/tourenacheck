@@ -19,7 +19,8 @@ function TourenaLogo() {
 const NAV_LINKS = {
   organizer: [
     { to: '/my-tournaments', label: 'My Tournaments' },
-    { to: '/create-tournament', label: 'Create' },
+    { to: '/create-tournament', label: 'Create Tournament' },
+    { to: '/verified-organizers', label: 'Verified Organizers' },
     { to: '/analytics', label: 'Analytics' },
     { to: '/teams', label: 'Teams' },
     { to: '/communities', label: 'Communities' },
@@ -31,6 +32,8 @@ const NAV_LINKS = {
   ],
   player: [
     { to: '/discover', label: 'Discover' },
+    { to: '/verified-organizers', label: 'Verified Organizers' },
+    { to: '/create-casual-game', label: 'Create Casual Game' },
     { to: '/tournaments', label: 'My Tournaments' },
     { to: '/leaderboard', label: 'Leaderboard' },
     { to: '/teams', label: 'Teams' },
@@ -43,8 +46,12 @@ const NAV_LINKS = {
   ],
   admin: [
     { to: '/admin', label: 'Dashboard' },
+    { to: '/admin/coin-circulation', label: 'Coin Circulation' },
     { to: '/admin/revenue', label: 'Revenue' },
     { to: '/admin/users', label: 'Users' },
+    { to: '/admin/host-applications', label: 'Host Applications' },
+    { to: '/admin/verified-org-applications', label: 'Verified Org Apps' },
+    { to: '/admin/game-registrations', label: 'Game Registrations' },
     { to: '/admin/tournaments', label: 'Tournaments' },
     { to: '/admin/withdrawals', label: 'Withdrawals' },
     { to: '/admin/transactions', label: 'Transactions' },
@@ -54,6 +61,7 @@ const NAV_LINKS = {
     { to: '/admin/events', label: 'Events' },
     { to: '/admin/news', label: 'News' },
     { to: '/admin/earnings-flow', label: 'Earnings Flow' },
+    { to: '/admin/platform-assets', label: 'Platform Assets' },
     { to: '/admin/settings', label: 'Settings' },
   ],
 }
@@ -101,7 +109,7 @@ export default function Navbar() {
     return () => supabase.removeChannel(channel)
   }, [profile])
 
-  if (!profile) return null
+  useEffect(() => { setMenuOpen(false) }, [location.pathname])
 
   // Build moderator nav dynamically from their permissions
   const modLinks = profile.is_moderator ? [
@@ -112,6 +120,8 @@ export default function Navbar() {
     ...(profile.moderator_permissions?.manage_communities ? [{ to: '/mod/communities', label: 'Communities' }] : []),
     ...(profile.moderator_permissions?.manage_news        ? [{ to: '/mod/news', label: 'News' }] : []),
   ] : []
+
+  if (!profile) return null
 
   const role = profile.is_admin ? 'admin' : profile.is_moderator ? 'moderator' : profile.role
   const links = role === 'moderator' ? modLinks : (NAV_LINKS[role] ?? NAV_LINKS.player)
@@ -126,11 +136,11 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
         <TourenaLogo />
 
-        {/* Desktop nav */}
-        <div className="hidden md:flex items-center gap-1">
+        {/* Desktop nav — scrollable strip so it never wraps */}
+        <div className="hidden md:flex items-center gap-0.5 overflow-x-auto scrollbar-hide flex-1 mx-2">
           {links.map(l => (
             <Link key={l.to} to={l.to}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${location.pathname === l.to ? 'text-white bg-surface2' : 'text-muted hover:text-white hover:bg-surface2'}`}>
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${location.pathname === l.to ? 'text-white bg-surface2' : 'text-muted hover:text-white hover:bg-surface2'}`}>
               {l.label}
             </Link>
           ))}
@@ -166,6 +176,7 @@ export default function Navbar() {
           </div>
 
           <Link to="/wallet" className="hidden sm:flex items-center gap-1.5 bg-surface2 hover:bg-surface border border-white/10 rounded-lg px-3 py-1.5 transition-colors">
+            <img src="/coin.svg" alt="TC" className="w-4 h-4" />
             <span className="text-accent font-bold text-sm">{formatTC(profile.coin_balance ?? 0)}</span>
           </Link>
 
@@ -214,16 +225,34 @@ export default function Navbar() {
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div className="md:hidden border-t border-white/[0.08] bg-surface px-4 py-3 space-y-1">
+        <div className="md:hidden border-t border-white/[0.08] bg-surface px-4 py-3 space-y-1 max-h-[70vh] overflow-y-auto">
           {links.map(l => (
             <Link key={l.to} to={l.to} onClick={() => setMenuOpen(false)}
-              className={`block px-3 py-2 rounded-lg text-sm font-medium transition-colors ${location.pathname === l.to ? 'text-white bg-surface2' : 'text-muted hover:text-white hover:bg-surface2'}`}>
+              className={`block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${location.pathname === l.to ? 'text-white bg-surface2' : 'text-muted hover:text-white hover:bg-surface2'}`}>
               {l.label}
             </Link>
           ))}
+          {!profile.is_admin && !profile.is_moderator && (
+            <>
+              <div className="border-t border-white/10 my-1" />
+              <Link to="/search" onClick={() => setMenuOpen(false)}
+                className={`block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${location.pathname === '/search' ? 'text-white bg-surface2' : 'text-muted hover:text-white hover:bg-surface2'}`}>
+                Search
+              </Link>
+              <Link to="/messages" onClick={() => setMenuOpen(false)}
+                className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${location.pathname === '/messages' ? 'text-white bg-surface2' : 'text-muted hover:text-white hover:bg-surface2'}`}>
+                Messages
+                {unreadDMs > 0 && (
+                  <span className="min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                    {unreadDMs > 9 ? '9+' : unreadDMs}
+                  </span>
+                )}
+              </Link>
+            </>
+          )}
           <div className="pt-2 border-t border-white/10">
             <div className="flex items-center gap-1.5 px-3 py-2">
-              <img src={tourenaIcon} alt="TC" className="w-4 h-4 rounded" />
+              <img src="/coin.svg" alt="TC" className="w-4 h-4" />
               <span className="text-accent font-bold text-sm">{formatTC(profile.coin_balance ?? 0)}</span>
             </div>
           </div>

@@ -3,12 +3,13 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Navbar from './components/layout/Navbar'
+import BottomNav from './components/layout/BottomNav'
+import Landing from './pages/Landing'
 import tourenaIcon from '../image/tourena-icon.png'
 
 // Auth
 import Login from './pages/auth/Login'
 import Signup from './pages/auth/Signup'
-import AccountPending from './pages/auth/AccountPending'
 import ForgotPassword from './pages/auth/ForgotPassword'
 import ResetPassword from './pages/auth/ResetPassword'
 
@@ -27,6 +28,10 @@ import EventsPage from './pages/shared/EventsPage'
 import Search from './pages/shared/Search'
 import Teams from './pages/shared/Teams'
 import TeamDetail from './pages/shared/TeamDetail'
+import ApplyToHost from './pages/shared/ApplyToHost'
+import ApplyVerifiedOrganizer from './pages/shared/ApplyVerifiedOrganizer'
+import VerifiedOrganizerCenter from './pages/shared/VerifiedOrganizerCenter'
+import CreateCasualGame from './pages/shared/CreateCasualGame'
 
 // Player
 import Discover from './pages/player/Discover'
@@ -54,6 +59,11 @@ import AdminNews from './pages/admin/AdminNews'
 import AdminCommunities from './pages/admin/AdminCommunities'
 import AdminReports from './pages/admin/AdminReports'
 import AdminEarningsFlow from './pages/admin/AdminEarningsFlow'
+import AdminHostApplications from './pages/admin/AdminHostApplications'
+import AdminVerifiedOrgApplications from './pages/admin/AdminVerifiedOrgApplications'
+import AdminGameRegistrations from './pages/admin/AdminGameRegistrations'
+import AdminPlatformAssets from './pages/admin/AdminPlatformAssets'
+import AdminCoinCirculation from './pages/admin/AdminCoinCirculation'
 
 // Moderator
 import ModeratorDashboard from './pages/moderator/ModeratorDashboard'
@@ -71,9 +81,7 @@ function AuthGuard({ children }) {
   useEffect(() => {
     if (loading) return
     if (!user) { navigate('/login', { replace: true }); return }
-    if (profile?.account_status === 'pending' || profile?.account_status === 'rejected') {
-      if (location.pathname !== '/pending') navigate('/pending', { replace: true })
-    }
+    // Everyone is auto-approved now, no pending status
   }, [user, profile, loading, location.pathname])
 
   if (loading) return (
@@ -125,8 +133,29 @@ function AppLayout({ children }) {
     <div className="min-h-screen bg-bg">
       <Navbar />
       {children}
+      <BottomNav />
     </div>
   )
+}
+
+// Root: show landing to guests, redirect logged-in users to their dashboard
+function RootRoute() {
+  const { user, profile, loading } = useAuth()
+  if (loading) return (
+    <div className="min-h-screen bg-bg flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+  if (!user) return <Landing />
+  if (!profile) return (
+    <div className="min-h-screen bg-bg flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+  if (profile.is_admin) return <Navigate to="/admin" replace />
+  if (profile.is_moderator) return <Navigate to="/mod" replace />
+  if (profile.role === 'organizer') return <Navigate to="/my-tournaments" replace />
+  return <Navigate to="/discover" replace />
 }
 
 function HomeRedirect() {
@@ -136,7 +165,7 @@ function HomeRedirect() {
       <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
     </div>
   )
-  if (!user) return <Navigate to="/login" replace />
+  if (!user) return <Navigate to="/" replace />
   if (profile.is_admin) return <Navigate to="/admin" replace />
   if (profile.is_moderator) return <Navigate to="/mod" replace />
   if (profile.role === 'organizer') return <Navigate to="/my-tournaments" replace />
@@ -158,11 +187,11 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
 
-          {/* Pending */}
-          <Route path="/pending" element={<AuthGuard><AccountPending /></AuthGuard>} />
+          {/* Root — landing for guests, redirect for logged-in */}
+          <Route path="/" element={<RootRoute />} />
 
-          {/* Protected routes */}
-          <Route path="/" element={<AuthGuard><AppLayout><HomeRedirect /></AppLayout></AuthGuard>} />
+          {/* Pending — kept for legacy redirects */}
+          <Route path="/pending" element={<Navigate to="/" replace />} />
 
           {/* Shared */}
           <Route path="/wallet" element={<AuthGuard><AppLayout><Wallet /></AppLayout></AuthGuard>} />
@@ -179,6 +208,10 @@ export default function App() {
           <Route path="/search" element={<AuthGuard><AppLayout><Search /></AppLayout></AuthGuard>} />
           <Route path="/teams" element={<AuthGuard><AppLayout><Teams /></AppLayout></AuthGuard>} />
           <Route path="/team/:id" element={<AuthGuard><AppLayout><TeamDetail /></AppLayout></AuthGuard>} />
+          <Route path="/apply-to-host" element={<AuthGuard><AppLayout><ApplyToHost /></AppLayout></AuthGuard>} />
+          <Route path="/apply-verified-organizer" element={<AuthGuard><AppLayout><ApplyVerifiedOrganizer /></AppLayout></AuthGuard>} />
+          <Route path="/verified-organizers" element={<AuthGuard><AppLayout><VerifiedOrganizerCenter /></AppLayout></AuthGuard>} />
+          <Route path="/create-casual-game" element={<AuthGuard><AppLayout><CreateCasualGame /></AppLayout></AuthGuard>} />
 
           {/* Player */}
           <Route path="/discover" element={<AuthGuard><AppLayout><Discover /></AppLayout></AuthGuard>} />
@@ -206,6 +239,11 @@ export default function App() {
           <Route path="/admin/communities" element={<AuthGuard><AdminGuard><AppLayout><AdminCommunities /></AppLayout></AdminGuard></AuthGuard>} />
           <Route path="/admin/reports" element={<AuthGuard><AdminGuard><AppLayout><AdminReports /></AppLayout></AdminGuard></AuthGuard>} />
           <Route path="/admin/earnings-flow" element={<AuthGuard><AdminGuard><AppLayout><AdminEarningsFlow /></AppLayout></AdminGuard></AuthGuard>} />
+          <Route path="/admin/host-applications" element={<AuthGuard><AdminGuard><AppLayout><AdminHostApplications /></AppLayout></AdminGuard></AuthGuard>} />
+          <Route path="/admin/verified-org-applications" element={<AuthGuard><AdminGuard><AppLayout><AdminVerifiedOrgApplications /></AppLayout></AdminGuard></AuthGuard>} />
+          <Route path="/admin/game-registrations" element={<AuthGuard><AdminGuard><AppLayout><AdminGameRegistrations /></AppLayout></AdminGuard></AuthGuard>} />
+          <Route path="/admin/platform-assets" element={<AuthGuard><AdminGuard><AppLayout><AdminPlatformAssets /></AppLayout></AdminGuard></AuthGuard>} />
+          <Route path="/admin/coin-circulation" element={<AuthGuard><AdminGuard><AppLayout><AdminCoinCirculation /></AppLayout></AdminGuard></AuthGuard>} />
 
           {/* Moderator */}
           <Route path="/mod" element={<AuthGuard><ModeratorGuard><AppLayout><ModeratorDashboard /></AppLayout></ModeratorGuard></AuthGuard>} />

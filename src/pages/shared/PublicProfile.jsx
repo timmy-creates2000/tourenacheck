@@ -45,7 +45,7 @@ function OrganizerTab({ userId }) {
             </div>
             <div className="text-right flex flex-col items-end gap-1">
               <Badge color={STATUS_COLOR[t.status] ?? 'gray'}>{t.status?.replace(/_/g, ' ')}</Badge>
-              <span className="text-xs text-accent">🪙 {formatTC(t.prize_pool_tc ?? 0)}</span>
+              <span className="text-xs text-accent flex items-center gap-1"><img src="/coin.svg" alt="TC" className="w-3 h-3" /> {formatTC(t.prize_pool_tc ?? 0)}</span>
             </div>
           </div>
         ))}
@@ -212,10 +212,10 @@ export default function PublicProfile() {
               { icon: '🎮', label: 'Tournaments Played', value: stats?.tournaments_played ?? 0 },
               { icon: '🏆', label: 'Tournaments Won', value: stats?.tournaments_won ?? 0 },
               { icon: '📊', label: 'Win Rate', value: `${wr}%` },
-              { icon: '🪙', label: 'Total TC Earned', value: formatTC(stats?.total_tc_earned ?? 0) },
-              { icon: '💸', label: 'TC Spent on Fees', value: formatTC(stats?.total_tc_spent ?? 0) },
+              { icon: <img src="/coin.svg" alt="TC" className="w-5 h-5" />, label: 'Total TC Earned', value: formatTC(stats?.total_tc_earned ?? 0) },
+              { icon: <img src="/coin.svg" alt="TC" className="w-5 h-5" />, label: 'TC Spent on Fees', value: formatTC(stats?.total_tc_spent ?? 0) },
               { icon: '👥', label: 'Opponents Faced', value: stats?.total_opponents_faced ?? 0 },
-              { icon: '💎', label: 'Best Prize', value: formatTC(stats?.best_prize_tc ?? 0) },
+              { icon: <img src="/coin.svg" alt="TC" className="w-5 h-5" />, label: 'Best Prize', value: formatTC(stats?.best_prize_tc ?? 0) },
               { icon: '🕹️', label: 'Favourite Game', value: stats?.favourite_game ?? '—' },
               { icon: '🎪', label: 'Favourite Mode', value: stats?.favourite_mode ?? '—' },
             ].map((s, i) => (
@@ -308,7 +308,7 @@ export default function PublicProfile() {
                 {p.tournaments?.is_practice ? <Badge color="gray" outline>Practice</Badge> : null}
                 <div className="text-right">
                   {p.placement && <Badge color={p.placement === 1 ? 'gold' : p.placement <= 3 ? 'amber' : 'gray'}>#{p.placement}</Badge>}
-                  {!p.tournaments?.is_practice && p.placement === 1 && <p className="text-xs text-accent mt-1">🪙 {formatTC(p.tournaments?.prize_pool_tc ?? 0)}</p>}
+                  {!p.tournaments?.is_practice && p.placement === 1 && <p className="text-xs text-accent mt-1 flex items-center gap-1"><img src="/coin.svg" alt="TC" className="w-3 h-3" /> {formatTC(p.tournaments?.prize_pool_tc ?? 0)}</p>}
                 </div>
               </div>
             ))}

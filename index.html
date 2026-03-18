@@ -5,8 +5,55 @@
     <link rel="icon" type="image/png" href="/tourena-icon.png" />
     <link rel="apple-touch-icon" href="/tourena-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Tourena — Competitive gaming tournaments platform" />
-    <title>Tourena</title>
+
+    <!-- Primary SEO -->
+    <title>Tourena — Tournament Arena | Play & Earn, Host & Earn</title>
+    <meta name="description" content="Tourena is Africa's premier online gaming tournament platform. Join tournaments, win Tourena Coins, and cash out real money. Host tournaments and earn commission. 150+ games supported — PUBG Mobile, Free Fire, FIFA, Chess, and more." />
+    <meta name="keywords" content="tourena, tournament arena, online gaming tournament, play and earn, host and earn, esports africa, gaming tournament nigeria, win real money gaming, tourena coins, mobile gaming tournament, free fire tournament, pubg mobile tournament, fifa tournament, chess tournament, esports platform, gaming community africa, tournament hosting, earn from gaming, competitive gaming, online tournament platform" />
+    <meta name="author" content="neotimmy — neotimmytech@gmail.com" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://tourena.vercel.app/" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://tourena.vercel.app/" />
+    <meta property="og:title" content="Tourena — Tournament Arena | Play & Earn, Host & Earn" />
+    <meta property="og:description" content="Compete in online gaming tournaments and win real money. Host tournaments and earn commission. Africa's premier esports platform — 150+ games, instant payouts via Flutterwave." />
+    <meta property="og:image" content="https://tourena.vercel.app/tourena-icon.png" />
+    <meta property="og:site_name" content="Tourena" />
+    <meta property="og:locale" content="en_NG" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://tourena.vercel.app/" />
+    <meta name="twitter:title" content="Tourena — Tournament Arena | Play & Earn, Host & Earn" />
+    <meta name="twitter:description" content="Compete in online gaming tournaments and win real money. Host tournaments and earn commission. Africa's premier esports platform." />
+    <meta name="twitter:image" content="https://tourena.vercel.app/tourena-icon.png" />
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Tourena",
+      "alternateName": "Tourena Tournament Arena",
+      "url": "https://tourena.vercel.app",
+      "description": "Africa's premier online gaming tournament platform. Play and earn, host and earn. 150+ games supported.",
+      "applicationCategory": "GameApplication",
+      "operatingSystem": "Web, iOS, Android",
+      "author": {
+        "@type": "Person",
+        "name": "neotimmy",
+        "email": "neotimmytech@gmail.com"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "NGN",
+        "description": "Free to join"
+      }
+    }
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -38,8 +85,12 @@
       ::-webkit-scrollbar { width: 6px; } 
       ::-webkit-scrollbar-track { background: #12121A; }
       ::-webkit-scrollbar-thumb { background: #7C3AED; border-radius: 3px; }
+      .scrollbar-hide::-webkit-scrollbar { display: none; }
+      .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
       @keyframes pulse-gold { 0%,100% { box-shadow: 0 0 10px rgba(245,158,11,0.4); } 50% { box-shadow: 0 0 25px rgba(245,158,11,0.8); } }
       .badge-pulse { animation: pulse-gold 2s infinite; }
+      /* Safe area for notched phones */
+      .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
     </style>
   </head>
   <body>

@@ -109,7 +109,7 @@ export const BADGES = [
 
 export const STATUS_COLORS = {
   draft:            'bg-gray-600 text-gray-200',
-  pending_review:   'bg-yellow-600 text-yellow-100',
+  pending_approval: 'bg-yellow-600 text-yellow-100',
   approved:         'bg-blue-600 text-blue-100',
   published:        'bg-purple-600 text-purple-100',
   ongoing:          'bg-amber-600 text-amber-100',

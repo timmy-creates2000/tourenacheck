@@ -16,7 +16,7 @@ export function buildPaymentConfig({ user, amountFiat, currency, tcAmount, onSuc
     customizations: {
       title: 'Tourena Coins',
       description: `Purchase ${tcAmount} TC`,
-      logo: '/vite.svg',
+      logo: `${window.location.origin}/coin.svg`,
     },
     callback: onSuccess,
     onclose: onClose,

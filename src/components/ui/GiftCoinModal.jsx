@@ -66,7 +66,7 @@ export default function GiftCoinModal({ onClose, onSuccess, receiverUser = null 
             <>
               <div className="bg-surface2 rounded-xl p-3 text-sm flex justify-between">
                 <span className="text-muted">Your balance</span>
-                <span className="text-accent font-bold">🪙 {formatTC(profile?.coin_balance ?? 0)}</span>
+                <span className="text-accent font-bold flex items-center gap-1"><img src="/coin.svg" alt="TC" className="w-4 h-4 inline-block" /> {formatTC(profile?.coin_balance ?? 0)}</span>
               </div>
               <div>
                 <label className="text-xs text-muted mb-1 block">Recipient username</label>
@@ -103,8 +103,8 @@ export default function GiftCoinModal({ onClose, onSuccess, receiverUser = null 
                   placeholder="How many TC to gift?"
                   className="w-full bg-surface2 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-primary" />
                 {amount && parseInt(amount) > 0 && (
-                  <p className="text-xs text-muted mt-1">
-                    Balance after: 🪙 {formatTC((profile?.coin_balance ?? 0) - parseInt(amount))}
+                  <p className="text-xs text-muted mt-1 flex items-center gap-1">
+                    Balance after: <img src="/coin.svg" alt="TC" className="w-3 h-3 inline-block" /> {formatTC((profile?.coin_balance ?? 0) - parseInt(amount))}
                   </p>
                 )}
               </div>

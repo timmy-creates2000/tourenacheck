@@ -32,7 +32,8 @@ export default function MyTournaments() {
     fetchTournaments()
   }
 
-  const filtered = tab === 'All' ? tournaments : tournaments.filter(t => t.status === tab.toLowerCase().replace(' ', '_'))
+  const TAB_STATUS = { Draft: 'draft', Pending: 'pending_approval', Approved: 'approved', Published: 'published', Ongoing: 'ongoing', Completed: 'completed' }
+  const filtered = tab === 'All' ? tournaments : tournaments.filter(t => t.status === TAB_STATUS[tab])
 
   return (
     <PageWrapper>
@@ -71,7 +72,7 @@ export default function MyTournaments() {
                   <Link to={`/manage/${t.id}`} className="flex-1">
                     <Button variant="secondary" size="sm" className="w-full"><Settings size={13} className="mr-1" />Manage</Button>
                   </Link>
-                  {['draft','pending_review','approved','published'].includes(t.status) && (
+                  {['draft','pending_approval','approved','published'].includes(t.status) && (
                     <Button variant="danger" size="sm" onClick={() => cancelTournament(t.id)}><XCircle size={13} /></Button>
                   )}
                 </>

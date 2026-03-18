@@ -85,9 +85,9 @@ export function AuthProvider({ children }) {
       username,
       display_name: meta.full_name ?? null,
       avatar_url: meta.avatar_url ?? null,
-      role: meta.role ?? 'player',
+      role: 'player', // Everyone is player by default
       referral_code: Math.random().toString(36).substring(2, 10).toUpperCase(),
-      account_status: 'pending',
+      account_status: 'approved', // Auto-approved
       coin_balance: 0,
       preferred_currency: 'NGN',
     }, { onConflict: 'id', ignoreDuplicates: true })
@@ -108,7 +108,7 @@ export function AuthProvider({ children }) {
     return () => supabase.removeChannel(channel)
   }, [user])
 
-  async function signUp({ email, password, username, role, referralCode }) {
+  async function signUp({ email, password, username, referralCode }) {
     const { data: existing } = await supabase
       .from('users').select('id').eq('username', username).single()
     if (existing) throw new Error('Username already taken')
@@ -116,19 +116,28 @@ export function AuthProvider({ children }) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { username, role } },
+      options: { data: { username } }, // No role needed, everyone is player
     })
     if (error) throw error
 
     if (referralCode && data.user) {
-      setTimeout(async () => {
+      // Wait for the user row to exist (DB trigger may be slightly delayed), then set referred_by
+      const userId = data.user.id
+      const applyReferral = async () => {
         const { data: ref } = await supabase
-          .from('users').select('id').eq('referral_code', referralCode).single()
-        if (ref) {
-          await supabase.from('users')
-            .update({ referred_by: ref.id }).eq('id', data.user.id)
+          .from('users').select('id').eq('referral_code', referralCode.trim().toUpperCase()).single()
+        if (!ref) return
+        // Retry up to 5 times waiting for the new user row to be created
+        for (let i = 0; i < 5; i++) {
+          const { data: newUser } = await supabase.from('users').select('id').eq('id', userId).single()
+          if (newUser) {
+            await supabase.from('users').update({ referred_by: ref.id }).eq('id', userId)
+            return
+          }
+          await new Promise(r => setTimeout(r, 1000))
         }
-      }, 2000)
+      }
+      applyReferral()
     }
 
     return data
@@ -142,10 +151,35 @@ export function AuthProvider({ children }) {
     if (error) throw error
   }
 
-  async function signIn({ email, password }) {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
-    return data
+  async function signIn({ identifier, password }) {
+    // Check if identifier is email or username
+    const isEmail = identifier.includes('@')
+    
+    if (isEmail) {
+      // Login with email
+      const { data, error } = await supabase.auth.signInWithPassword({ email: identifier, password })
+      if (error) throw error
+      return data
+    } else {
+      // Login with username - first get email from username
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('email')
+        .eq('username', identifier)
+        .single()
+      
+      if (userError || !userData) {
+        throw new Error('Username not found')
+      }
+      
+      // Now login with the email
+      const { data, error } = await supabase.auth.signInWithPassword({ 
+        email: userData.email, 
+        password 
+      })
+      if (error) throw error
+      return data
+    }
   }
 
   async function signOut() {

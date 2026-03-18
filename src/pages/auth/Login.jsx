@@ -20,7 +20,7 @@ function GoogleIcon() {
 export default function Login() {
   const { signIn, signInWithGoogle } = useAuth()
   const navigate = useNavigate()
-  const [form, setForm] = useState({ email: '', password: '' })
+  const [form, setForm] = useState({ identifier: '', password: '' }) // identifier can be username or email
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState('')
@@ -80,7 +80,7 @@ export default function Login() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Input label="Email" type="email" placeholder="you@example.com" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} required />
+            <Input label="Username or Email" placeholder="your_username or email@example.com" value={form.identifier} onChange={e => setForm(p => ({ ...p, identifier: e.target.value }))} required />
             <Input label="Password" type="password" placeholder="••••••••" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} required />
             <div className="text-right">
               <Link to="/forgot-password" className="text-xs text-primary hover:text-purple-300">Forgot password?</Link>

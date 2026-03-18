@@ -23,7 +23,7 @@ import Modal from '../../components/ui/Modal'
 import Input from '../../components/ui/Input'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { formatTC, formatDate } from '../../lib/utils'
-import { STATUS_COLORS } from '../../lib/constants'
+import { STATUS_COLORS, BADGES } from '../../lib/constants'
 import toast from 'react-hot-toast'
 
 const MOD_PERMISSIONS = [
@@ -64,6 +64,9 @@ export default function AdminUsers() {
   const [promoLoading, setPromoLoading] = useState(false)
   const [bulkConfirm, setBulkConfirm] = useState(false)
   const [roleModal, setRoleModal] = useState(null)
+  const [badgeModal, setBadgeModal] = useState(null)
+  const [badgeLoading, setBadgeLoading] = useState(false)
+  const [userBadges, setUserBadges] = useState([])
 
   const [actionLoading, setActionLoading] = useState(null)
 
@@ -135,7 +138,7 @@ export default function AdminUsers() {
         await supabase.rpc('debit_coins', {
           p_user_id: userId,
           p_amount: Math.abs(delta),
-          p_type: 'admin_grant',
+          p_type: 'admin_deduct',
           p_description: reason,
         })
       }
@@ -241,6 +244,36 @@ export default function AdminUsers() {
       toast.error(err.message)
     } finally {
       setPromoLoading(false)
+    }
+  }
+
+  async function openBadgeModal(u) {
+    const { data } = await supabase.from('player_badges').select('badge_type').eq('user_id', u.id)
+    setUserBadges((data ?? []).map(b => b.badge_type))
+    setBadgeModal(u)
+  }
+
+  async function awardBadge(badge) {
+    if (!badgeModal) return
+    if (userBadges.includes(badge.type)) {
+      // Revoke
+      setBadgeLoading(true)
+      await supabase.from('player_badges').delete().eq('user_id', badgeModal.id).eq('badge_type', badge.type)
+      setUserBadges(prev => prev.filter(t => t !== badge.type))
+      toast.success(`Revoked "${badge.name}" from ${badgeModal.username}`)
+      setBadgeLoading(false)
+    } else {
+      // Award
+      setBadgeLoading(true)
+      await supabase.from('player_badges').upsert({
+        user_id: badgeModal.id,
+        badge_type: badge.type,
+        badge_name: badge.name,
+        badge_description: badge.description,
+      }, { onConflict: 'user_id,badge_type', ignoreDuplicates: true })
+      setUserBadges(prev => [...prev, badge.type])
+      toast.success(`Awarded "${badge.name}" to ${badgeModal.username}`)
+      setBadgeLoading(false)
     }
   }
 
@@ -350,6 +383,7 @@ export default function AdminUsers() {
                           onClick={() => toggleVerify(u)}>
                           {u.is_verified ? 'Unverify' : 'Verify'}
                         </Button>
+                        <Button size="sm" variant="ghost" onClick={() => openBadgeModal(u)}>Badges</Button>
                       </div>
                     </td>
                   </tr>
@@ -517,6 +551,27 @@ export default function AdminUsers() {
               Send Promo
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      {/* Award / Revoke Badge Modal */}
+      <Modal open={!!badgeModal} onClose={() => setBadgeModal(null)} title={`Badges — ${badgeModal?.username}`} size="lg">
+        <div className="space-y-3">
+          <p className="text-xs text-muted">Click a badge to award or revoke it. Changes take effect immediately.</p>
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+            {BADGES.map(b => {
+              const has = userBadges.includes(b.type)
+              return (
+                <button key={b.type} onClick={() => awardBadge(b)} disabled={badgeLoading}
+                  className={`p-3 rounded-xl border text-center transition-all hover:scale-105 ${has ? (b.rare ? 'border-amber-500/60 bg-amber-500/15' : 'border-primary/40 bg-primary/10') : 'border-white/[0.06] bg-surface opacity-50 hover:opacity-80'}`}>
+                  <div className="text-2xl mb-1">{b.icon}</div>
+                  <p className="text-xs font-bold text-white leading-tight">{b.name}</p>
+                  {has && <p className="text-[10px] text-green-400 mt-0.5">Earned</p>}
+                </button>
+              )
+            })}
+          </div>
+          <Button variant="ghost" className="w-full" onClick={() => setBadgeModal(null)}>Done</Button>
         </div>
       </Modal>
     </PageWrapper>

@@ -132,7 +132,7 @@ export default function TournamentDetail() {
   return (
     <PageWrapper>
       {/* Banner */}
-      {t.banner_url && <img src={t.banner_url} className="w-full h-48 md:h-64 object-cover rounded-2xl mb-6" alt="banner" />}
+      {t.banner_url && <img src={t.banner_url} className="w-full h-40 sm:h-48 md:h-64 object-cover rounded-2xl mb-6" alt="banner" />}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* Left */}

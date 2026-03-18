@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Plus, Trash2, Edit2, Check, X } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import PageWrapper from '../../components/layout/PageWrapper'
@@ -11,6 +12,7 @@ import toast from 'react-hot-toast'
 
 export default function ProfileSettings() {
   const { profile, refreshProfile, signOut } = useAuth()
+  const navigate = useNavigate()
   const [form, setForm] = useState({ username: '', display_name: '', bio: '', country: '', preferred_currency: 'NGN', social_youtube: '', social_twitter: '', social_twitch: '', gender: '', favourite_game: '' })
   const [gameTags, setGameTags] = useState([])
   const [newTag, setNewTag] = useState({ game_name: '', game_tag: '' })
@@ -185,13 +187,46 @@ export default function ProfileSettings() {
           <Select label="Preferred Currency" value={form.preferred_currency} onChange={e => setForm(p => ({ ...p, preferred_currency: e.target.value }))}>
             {Object.entries(CURRENCY_RATES).map(([k, v]) => <option key={k} value={k}>{k} — {v.label}</option>)}
           </Select>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-white">Current Role: <span className="text-accent capitalize">{profile?.role}</span></p>
-              <p className="text-xs text-muted">{profile?.role === 'organizer' ? 'Switch to Player mode' : 'Contact admin for organizer access'}</p>
-            </div>
-            {profile?.role === 'organizer' && (
-              <Button variant="secondary" size="sm" onClick={switchRole}>Switch to Player</Button>
+          
+          {/* Host Status */}
+          <div className="border-t border-white/10 pt-4">
+            <p className="text-sm font-semibold text-white mb-2">Tournament Hosting</p>
+            {!profile?.is_host && !profile?.is_verified_organizer && (
+              <div className="bg-surface2 rounded-lg p-4">
+                <p className="text-sm text-muted mb-3">Want to host public tournaments? Apply to become a host!</p>
+                <Button variant="primary" size="sm" onClick={() => navigate('/apply-to-host')}>
+                  Apply to Host Tournaments
+                </Button>
+              </div>
+            )}
+            {profile?.is_host && !profile?.is_verified_organizer && (
+              <div className="bg-primary/10 rounded-lg p-4 border border-primary/20">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <p className="text-sm font-semibold text-white">Host Status</p>
+                    <p className="text-xs text-muted">You can create public tournaments</p>
+                  </div>
+                  <span className="text-xs px-2 py-1 bg-primary/20 text-primary rounded-full">Host</span>
+                </div>
+                <p className="text-sm text-muted mb-3">Ready for the next level? Apply for verified organizer status!</p>
+                <Button variant="accent" size="sm" onClick={() => navigate('/apply-verified-organizer')}>
+                  Apply for Verified Status
+                </Button>
+              </div>
+            )}
+            {profile?.is_verified_organizer && (
+              <div className="bg-accent/10 rounded-lg p-4 border border-accent/20">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-white flex items-center gap-2">
+                      Verified Organizer ✓
+                    </p>
+                    <p className="text-xs text-muted">Featured in Verified Organizer Center</p>
+                    <p className="text-xs text-accent mt-1">Trust Score: {profile.trust_score || 0}</p>
+                  </div>
+                  <span className="text-xs px-2 py-1 bg-accent/20 text-accent rounded-full">Verified</span>
+                </div>
+              </div>
             )}
           </div>
         </div>

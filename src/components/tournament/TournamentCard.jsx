@@ -15,7 +15,7 @@ export default function TournamentCard({ tournament, actions, organizer = false,
   return (
     <div className="bg-surface rounded-xl border border-white/[0.08] overflow-hidden hover:border-primary/30 transition-all duration-200 group flex flex-col">
       {/* Thumbnail */}
-      <div className="relative aspect-square overflow-hidden bg-surface2">
+      <div className="relative aspect-video overflow-hidden bg-surface2">
         {t.thumbnail_url
           ? <img src={t.thumbnail_url} alt={t.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
           : <div className="w-full h-full flex items-center justify-center text-4xl">🎮</div>
@@ -71,11 +71,11 @@ export default function TournamentCard({ tournament, actions, organizer = false,
         {/* Prize & Entry */}
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-1 text-accent text-sm font-bold">
-            <span>🪙</span>
+            <img src="/coin.svg" alt="TC" className="w-4 h-4" />
             {isPractice ? <span className="text-muted text-xs font-normal">No prize</span> : <span>{formatTC(t.prize_pool_tc ?? 0)}</span>}
           </div>
           <div className="text-xs text-muted">
-            {isPractice ? 'Free entry' : t.entry_fee_tc === 0 ? 'Free' : <span className="text-white font-semibold">🪙 {formatTC(t.entry_fee_tc)}</span>}
+            {isPractice ? 'Free entry' : t.entry_fee_tc === 0 ? 'Free' : <span className="text-white font-semibold flex items-center gap-1"><img src="/coin.svg" alt="TC" className="w-3 h-3" /> {formatTC(t.entry_fee_tc)}</span>}
           </div>
         </div>
 
