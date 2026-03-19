@@ -9,10 +9,11 @@ import Button from '../../components/ui/Button'
 import { Skeleton } from '../../components/ui/Skeleton'
 import GiftCoinModal from '../../components/ui/GiftCoinModal'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-import { formatTC, formatDate, getCountryFlag, winRate, truncate, getPlayerStars, getStreakTier } from '../../lib/utils'
+import { formatTC, formatDate, getCountryFlag, winRate, truncate, getPlayerStars, getStreakTier, timeAgo } from '../../lib/utils'
 import { BADGES } from '../../lib/constants'
 import { VerifiedBadge } from '../../components/ui/Avatar'
-import { MessageCircle, Gift, UserPlus, UserCheck, Trophy, Gamepad2, Star, Zap } from 'lucide-react'
+import { MessageCircle, Gift, UserPlus, UserCheck, Trophy, Gamepad2, Star, Zap, Share2, MoreHorizontal } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 function OrganizerTab({ userId }) {
   const [tournaments, setTournaments] = useState([])
@@ -64,6 +65,7 @@ export default function PublicProfile() {
   const [followingCount, setFollowingCount] = useState(0)
   const [giftOpen, setGiftOpen] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
 
   useEffect(() => { fetchProfile() }, [username])
 
@@ -153,11 +155,40 @@ export default function PublicProfile() {
   const streakTier = getStreakTier(stats?.current_win_streak ?? 0)
   const chartData = recentTournaments.slice(0, 10).map(p => ({ name: truncate(p.tournaments?.title ?? '', 10), placement: p.placement ?? 0 })).reverse()
   const isMe = me?.id === user.id
-  const TABS = ['overview', 'badges', 'tournaments', ...(user.role === 'organizer' ? ['organizer'] : [])]
+  const TABS = ['overview', 'activity', 'badges', 'tournaments', ...(user.role === 'organizer' ? ['organizer'] : []), 'about']
 
   return (
     <div className="min-h-screen bg-bg pb-24 md:pb-8">
       {giftOpen && <GiftCoinModal receiverUser={user} onClose={() => setGiftOpen(false)} />}
+      
+      {/* Share Modal */}
+      {shareOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShareOpen(false)}>
+          <div className="bg-surface border border-white/10 rounded-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-white mb-4">Share Profile</h3>
+            <div className="space-y-3">
+              <div className="bg-surface2 rounded-lg p-3">
+                <p className="text-xs text-muted mb-2">Profile Link</p>
+                <p className="text-sm text-white break-all">{window.location.href}</p>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => {
+                    navigator.clipboard.writeText(window.location.href)
+                    toast.success('Link copied!')
+                  }}
+                  className="flex-1"
+                >
+                  Copy Link
+                </Button>
+                <Button variant="secondary" onClick={() => setShareOpen(false)} className="flex-1">
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cover photo */}
       <div className="relative h-40 sm:h-56 bg-gradient-to-br from-primary/40 via-surface to-accent/20 overflow-hidden">
@@ -179,7 +210,7 @@ export default function PublicProfile() {
 
           {/* Action buttons */}
           {!isMe && me && (
-            <div className="flex gap-2 pb-2">
+            <div className="flex gap-2 pb-2 flex-wrap">
               <Button size="sm" variant={isFollowing ? 'secondary' : 'primary'} loading={followLoading} onClick={toggleFollow}>
                 {isFollowing ? <UserCheck size={15} /> : <UserPlus size={15} />}
                 <span className="ml-1.5 hidden sm:inline">{isFollowing ? 'Following' : 'Follow'}</span>
@@ -192,6 +223,19 @@ export default function PublicProfile() {
                 <Gift size={15} />
                 <span className="ml-1.5 hidden sm:inline">Gift</span>
               </Button>
+              <Button size="sm" variant="ghost" onClick={() => setShareOpen(true)}>
+                <Share2 size={15} />
+                <span className="ml-1.5 hidden sm:inline">Share</span>
+              </Button>
+            </div>
+          )}
+          {isMe && (
+            <div className="flex gap-2 pb-2">
+              <Link to="/settings">
+                <Button size="sm" variant="secondary">
+                  Edit Profile
+                </Button>
+              </Link>
             </div>
           )}
         </div>
@@ -338,6 +382,139 @@ export default function PublicProfile() {
         )}
 
         {tab === 'organizer' && <OrganizerTab userId={user.id} />}
+
+        {tab === 'activity' && (
+          <div className="space-y-4">
+            <Card className="p-5">
+              <h3 className="text-sm font-bold text-white mb-4">Recent Activity</h3>
+              <div className="space-y-3">
+                {recentTournaments.slice(0, 5).map(p => (
+                  <div key={p.id} className="flex items-center gap-3 text-sm">
+                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                      <Trophy size={14} className="text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white">
+                        {p.placement === 1 ? '🏆 Won' : p.placement <= 3 ? '🥉 Placed' : '🎮 Played'}{' '}
+                        <Link to={`/tournament/${p.tournaments?.id}`} className="text-primary hover:underline">
+                          {p.tournaments?.title}
+                        </Link>
+                      </p>
+                      <p className="text-xs text-muted">{timeAgo(p.registered_at)}</p>
+                    </div>
+                    {p.placement && (
+                      <Badge color={p.placement === 1 ? 'gold' : p.placement <= 3 ? 'amber' : 'gray'}>
+                        #{p.placement}
+                      </Badge>
+                    )}
+                  </div>
+                ))}
+                {recentTournaments.length === 0 && (
+                  <p className="text-center py-8 text-muted text-sm">No recent activity</p>
+                )}
+              </div>
+            </Card>
+
+            {/* Friends/Following */}
+            <Card className="p-5">
+              <h3 className="text-sm font-bold text-white mb-4">Following ({followingCount})</h3>
+              <p className="text-xs text-muted">Feature coming soon - view who {user.username} follows</p>
+            </Card>
+          </div>
+        )}
+
+        {tab === 'about' && (
+          <div className="space-y-4">
+            <Card className="p-5">
+              <h3 className="text-sm font-bold text-white mb-4">About</h3>
+              <div className="space-y-3 text-sm">
+                {user.bio && (
+                  <div>
+                    <p className="text-muted mb-1">Bio</p>
+                    <p className="text-white">{user.bio}</p>
+                  </div>
+                )}
+                {user.country && (
+                  <div>
+                    <p className="text-muted mb-1">Location</p>
+                    <p className="text-white">{getCountryFlag(user.country)} {user.country}</p>
+                  </div>
+                )}
+                {user.favourite_game && (
+                  <div>
+                    <p className="text-muted mb-1">Favorite Game</p>
+                    <p className="text-white">{user.favourite_game}</p>
+                  </div>
+                )}
+                {gameTags.length > 0 && (
+                  <div>
+                    <p className="text-muted mb-1">Game Tags</p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {gameTags.map(gt => (
+                        <span key={gt.id} className="bg-primary/10 text-primary px-3 py-1.5 rounded-lg text-xs">
+                          {gt.game_name} <span className="text-white/60">#{gt.game_tag}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <p className="text-muted mb-1">Member Since</p>
+                  <p className="text-white">{formatDate(user.created_at)}</p>
+                </div>
+                <div>
+                  <p className="text-muted mb-1">Role</p>
+                  <p className="text-white capitalize">{user.role}</p>
+                </div>
+                {(user.is_host || user.is_verified_organizer) && (
+                  <div>
+                    <p className="text-muted mb-1">Status</p>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {user.is_host && <Badge color="primary">Tournament Host</Badge>}
+                      {user.is_verified_organizer && <Badge color="accent">Verified Organizer</Badge>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* Social Links */}
+            {(user.social_youtube || user.social_twitter || user.social_twitch) && (
+              <Card className="p-5">
+                <h3 className="text-sm font-bold text-white mb-4">Social Links</h3>
+                <div className="space-y-2">
+                  {user.social_youtube && (
+                    <a href={user.social_youtube} target="_blank" rel="noreferrer" 
+                      className="flex items-center gap-3 p-3 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors">
+                      <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center text-white text-xs font-bold">
+                        YT
+                      </div>
+                      <span className="text-sm text-white">YouTube</span>
+                    </a>
+                  )}
+                  {user.social_twitter && (
+                    <a href={user.social_twitter} target="_blank" rel="noreferrer"
+                      className="flex items-center gap-3 p-3 bg-sky-500/10 hover:bg-sky-500/20 rounded-lg transition-colors">
+                      <div className="w-8 h-8 bg-sky-500 rounded-lg flex items-center justify-center text-white text-xs font-bold">
+                        𝕏
+                      </div>
+                      <span className="text-sm text-white">Twitter / X</span>
+                    </a>
+                  )}
+                  {user.social_twitch && (
+                    <a href={user.social_twitch} target="_blank" rel="noreferrer"
+                      className="flex items-center gap-3 p-3 bg-purple-500/10 hover:bg-purple-500/20 rounded-lg transition-colors">
+                      <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center text-white text-xs font-bold">
+                        TW
+                      </div>
+                      <span className="text-sm text-white">Twitch</span>
+                    </a>
+                  )}
+                </div>
+              </Card>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
