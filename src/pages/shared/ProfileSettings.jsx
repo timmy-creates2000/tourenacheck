@@ -47,18 +47,40 @@ export default function ProfileSettings() {
       let avatar_url = profile.avatar_url
       if (avatarFile) {
         const ext = avatarFile.name.split('.').pop()
-        const path = `avatars/${profile.id}.${ext}`
-        const { error: upErr } = await supabase.storage.from('avatars').upload(path, avatarFile, { upsert: true })
-        if (upErr) throw upErr
-        const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
-        avatar_url = publicUrl
+        const timestamp = Date.now()
+        const path = `${profile.id}-${timestamp}.${ext}`
+        
+        // Upload to avatars bucket
+        const { error: upErr } = await supabase.storage
+          .from('avatars')
+          .upload(path, avatarFile, { 
+            upsert: true,
+            contentType: avatarFile.type 
+          })
+        
+        if (upErr) {
+          console.error('Upload error:', upErr)
+          throw new Error(`Upload failed: ${upErr.message}`)
+        }
+        
+        // Get public URL with cache busting
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(path)
+        
+        avatar_url = `${publicUrl}?t=${timestamp}`
       }
+      
       const { error } = await supabase.from('users').update({ ...form, avatar_url }).eq('id', profile.id)
       if (error) throw error
+      
       await refreshProfile()
+      setAvatarFile(null)
+      setAvatarPreview(null)
       toast.success('Profile updated!')
     } catch (err) {
-      toast.error(err.message)
+      console.error('Save profile error:', err)
+      toast.error(err.message || 'Failed to update profile')
     } finally {
       setSaving(false)
     }

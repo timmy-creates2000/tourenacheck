@@ -87,6 +87,30 @@ export default function PublicProfile() {
     setLoading(false)
   }
 
+  async function startConversation() {
+    if (!me || !user) return
+    // Check if conversation exists
+    const { data: existing } = await supabase.from('conversations')
+      .select('id')
+      .or(`and(participant_a.eq.${me.id},participant_b.eq.${user.id}),and(participant_a.eq.${user.id},participant_b.eq.${me.id})`)
+      .single()
+    
+    if (existing) {
+      window.location.href = `/messages?conversation=${existing.id}`
+      return
+    }
+    
+    // Create new conversation
+    const { data: newConvo } = await supabase.from('conversations')
+      .insert({ participant_a: me.id, participant_b: user.id })
+      .select()
+      .single()
+    
+    if (newConvo) {
+      window.location.href = `/messages?conversation=${newConvo.id}`
+    }
+  }
+
   async function toggleFollow() {
     if (!me || !user) return
     setFollowLoading(true)
@@ -110,7 +134,18 @@ export default function PublicProfile() {
       </div>
     </div>
   )
-  if (!user) return <PageWrapper><div className="text-center py-20 text-muted">User not found</div></PageWrapper>
+  if (!user) return (
+    <PageWrapper>
+      <div className="text-center py-20">
+        <div className="text-6xl mb-4">👤</div>
+        <h2 className="text-2xl font-bold text-white mb-2">User Not Found</h2>
+        <p className="text-muted mb-6">The user @{username} doesn't exist or has been deleted.</p>
+        <Link to="/discover">
+          <Button>Browse Players</Button>
+        </Link>
+      </div>
+    </PageWrapper>
+  )
 
   const wr = winRate(stats?.tournaments_won ?? 0, stats?.tournaments_played ?? 0)
   const earnedBadgeTypes = new Set(badges.map(b => b.badge_type))
@@ -149,12 +184,10 @@ export default function PublicProfile() {
                 {isFollowing ? <UserCheck size={15} /> : <UserPlus size={15} />}
                 <span className="ml-1.5 hidden sm:inline">{isFollowing ? 'Following' : 'Follow'}</span>
               </Button>
-              <Link to="/messages">
-                <Button size="sm" variant="secondary">
-                  <MessageCircle size={15} />
-                  <span className="ml-1.5 hidden sm:inline">Message</span>
-                </Button>
-              </Link>
+              <Button size="sm" variant="secondary" onClick={startConversation}>
+                <MessageCircle size={15} />
+                <span className="ml-1.5 hidden sm:inline">Message</span>
+              </Button>
               <Button size="sm" variant="ghost" onClick={() => setGiftOpen(true)}>
                 <Gift size={15} />
                 <span className="ml-1.5 hidden sm:inline">Gift</span>
