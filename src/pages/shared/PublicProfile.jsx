@@ -12,7 +12,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 import { formatTC, formatDate, getCountryFlag, winRate, truncate, getPlayerStars, getStreakTier, timeAgo } from '../../lib/utils'
 import { BADGES } from '../../lib/constants'
 import { VerifiedBadge } from '../../components/ui/Avatar'
-import { MessageCircle, Gift, UserPlus, UserCheck, Trophy, Gamepad2, Star, Zap, Share2, MoreHorizontal } from 'lucide-react'
+import { MessageCircle, Gift, UserPlus, UserCheck, Trophy, Gamepad2, Star, Zap, Share2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 function OrganizerTab({ userId }) {
