@@ -16,6 +16,42 @@ import { processReferralBonus } from '../../lib/referrals'
 import { checkAndAwardBadges } from '../../lib/badges'
 import toast from 'react-hot-toast'
 
+// Inner component so useFlutterwave gets a fresh config each time Buy is clicked
+function FlutterwaveButton({ profile, tcAmount, fiatAmount, currency, onSuccess }) {
+  const config = {
+    public_key: FLW_PUBLIC_KEY,
+    tx_ref: uniqueRef(),
+    amount: fiatAmount,
+    currency,
+    payment_options: 'card,banktransfer,ussd',
+    customer: { email: profile?.email, name: profile?.username },
+    customizations: {
+      title: 'Tourena Coins',
+      description: `Purchase ${tcAmount} TC`,
+      logo: `${window.location.origin}/coin.svg`,
+    },
+  }
+  const handleFlutterPayment = useFlutterwave(config)
+
+  function pay() {
+    handleFlutterPayment({
+      callback: async (response) => {
+        closePaymentModal()
+        if (response.status === 'successful') {
+          await onSuccess(response)
+        }
+      },
+      onclose: () => {},
+    })
+  }
+
+  return (
+    <Button onClick={pay} disabled={tcAmount < MIN_DEPOSIT_TC} className="w-full" variant="accent">
+      Pay {tcAmount > 0 ? formatFiat(fiatAmount, currency) : ''}
+    </Button>
+  )
+}
+
 export default function Wallet() {
   const { profile, refreshProfile } = useAuth()
   const [transactions, setTransactions] = useState([])
@@ -45,35 +81,24 @@ export default function Wallet() {
   const tcAmount = selectedPkg?.custom ? (parseInt(customTc) || 0) : (selectedPkg?.tc ?? 0)
   const fiatAmount = tcToFiat(tcAmount, currency)
 
-  const flwConfig = {
-    public_key: FLW_PUBLIC_KEY,
-    tx_ref: uniqueRef(),
-    amount: fiatAmount,
-    currency,
-    payment_options: 'card,banktransfer,ussd',
-    customer: { email: profile?.email, name: profile?.username },
-    customizations: { title: 'Tourena Coins', description: `Purchase ${tcAmount} TC`, logo: `${window.location.origin}/coin.svg` },
-  }
-
-  const handleFlutterPayment = useFlutterwave(flwConfig)
-
-  async function handleBuy() {
-    if (tcAmount < MIN_DEPOSIT_TC) { toast.error(`Minimum purchase is ${MIN_DEPOSIT_TC} TC`); return }
-    handleFlutterPayment({
-      callback: async (response) => {
-        closePaymentModal()
-        if (response.status === 'successful') {
-          await supabase.rpc('credit_coins', { p_user_id: profile.id, p_amount: tcAmount, p_type: 'purchase', p_description: `Purchased ${tcAmount} TC`, p_fiat: fiatAmount, p_currency: currency, p_flw_ref: response.transaction_id?.toString() })
-          await refreshProfile()
-          await processReferralBonus(profile.id, tcAmount)
-          await checkAndAwardBadges(profile.id)
-          toast.success(`${formatTC(tcAmount)} added to your wallet!`)
-          setBuyModal(false)
-          fetchTransactions()
-        }
-      },
-      onclose: () => {},
+  async function onPaymentSuccess(response) {
+    await supabase.rpc('credit_coins', {
+      p_user_id: profile.id,
+      p_amount: tcAmount,
+      p_type: 'purchase',
+      p_description: `Purchased ${tcAmount} TC`,
+      p_fiat: fiatAmount,
+      p_currency: currency,
+      p_flw_ref: response.transaction_id?.toString(),
     })
+    await refreshProfile()
+    await processReferralBonus(profile.id, tcAmount)
+    await checkAndAwardBadges(profile.id)
+    toast.success(`${formatTC(tcAmount)} added to your wallet!`)
+    setBuyModal(false)
+    setSelectedPkg(null)
+    setCustomTc('')
+    fetchTransactions()
   }
 
   return (
@@ -116,7 +141,13 @@ export default function Wallet() {
             <p className="text-xs text-muted pt-1">Payment processed securely via Flutterwave</p>
           </div>
         )}
-        <Button onClick={handleBuy} disabled={tcAmount < MIN_DEPOSIT_TC} className="w-full" variant="accent">Pay {tcAmount > 0 ? formatFiat(fiatAmount, currency) : ''}</Button>
+        <FlutterwaveButton
+          profile={profile}
+          tcAmount={tcAmount}
+          fiatAmount={fiatAmount}
+          currency={currency}
+          onSuccess={onPaymentSuccess}
+        />
       </Modal>
 
       {/* Withdraw Modal */}
