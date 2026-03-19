@@ -67,6 +67,7 @@ export default function AdminUsers() {
   const [badgeModal, setBadgeModal] = useState(null)
   const [badgeLoading, setBadgeLoading] = useState(false)
   const [userBadges, setUserBadges] = useState([])
+  const [allBadges, setAllBadges] = useState([]) // system + custom merged
 
   const [actionLoading, setActionLoading] = useState(null)
 
@@ -248,8 +249,27 @@ export default function AdminUsers() {
   }
 
   async function openBadgeModal(u) {
+    // Load user's existing badges
     const { data } = await supabase.from('player_badges').select('badge_type').eq('user_id', u.id)
     setUserBadges((data ?? []).map(b => b.badge_type))
+
+    // Load system badge overrides + custom badges from platform_settings
+    const { data: settings } = await supabase.from('platform_settings').select('key,value')
+      .or('key.like.badge_override_%,key.like.badge_custom_%')
+    const overrides = {}
+    const customs = []
+    ;(settings ?? []).forEach(row => {
+      try {
+        const val = JSON.parse(row.value)
+        if (row.key.startsWith('badge_override_')) overrides[row.key.replace('badge_override_', '')] = val
+        else if (row.key.startsWith('badge_custom_')) customs.push({ type: row.key, ...val })
+      } catch {}
+    })
+    const merged = [
+      ...BADGES.map(b => ({ ...b, ...(overrides[b.type] ?? {}), type: b.type })),
+      ...customs,
+    ]
+    setAllBadges(merged)
     setBadgeModal(u)
   }
 
@@ -559,12 +579,16 @@ export default function AdminUsers() {
         <div className="space-y-3">
           <p className="text-xs text-muted">Click a badge to award or revoke it. Changes take effect immediately.</p>
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-            {BADGES.map(b => {
+            {allBadges.map(b => {
               const has = userBadges.includes(b.type)
               return (
                 <button key={b.type} onClick={() => awardBadge(b)} disabled={badgeLoading}
                   className={`p-3 rounded-xl border text-center transition-all hover:scale-105 ${has ? (b.rare ? 'border-amber-500/60 bg-amber-500/15' : 'border-primary/40 bg-primary/10') : 'border-white/[0.06] bg-surface opacity-50 hover:opacity-80'}`}>
-                  <div className="text-2xl mb-1">{b.icon}</div>
+                  <div className="flex justify-center mb-1">
+                    {b.icon?.startsWith('http')
+                      ? <img src={b.icon} alt={b.name} className="w-8 h-8 rounded-full object-cover" />
+                      : <span className="text-2xl">{b.icon}</span>}
+                  </div>
                   <p className="text-xs font-bold text-white leading-tight">{b.name}</p>
                   {has && <p className="text-[10px] text-green-400 mt-0.5">Earned</p>}
                 </button>
