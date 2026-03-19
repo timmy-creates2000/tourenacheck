@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import PageWrapper from '../../components/layout/PageWrapper'
@@ -11,6 +11,7 @@ import toast from 'react-hot-toast'
 
 export default function Groups() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [groups, setGroups] = useState([])
   const [myIds, setMyIds] = useState(new Set())
   const [pendingIds, setPendingIds] = useState(new Set())
@@ -170,7 +171,21 @@ export default function Groups() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {loading ? Array(6).fill(0).map((_, i) => <Skeleton key={i} className="h-36 rounded-xl" />)
-          : filtered.length === 0 ? <div className="col-span-3 text-center py-16 text-muted">No groups found</div>
+          : filtered.length === 0 ? (
+            <div className="col-span-3 text-center py-16">
+              <div className="text-5xl mb-4">👥</div>
+              <h3 className="text-xl font-bold text-white mb-2">No groups found</h3>
+              <p className="text-muted mb-6">
+                {tab === 'mine' 
+                  ? 'You haven\'t joined any groups yet. Create one or join existing groups to connect with players!'
+                  : 'No public groups available. Be the first to create one!'}
+              </p>
+              <div className="flex flex-wrap justify-center gap-3">
+                <Button onClick={() => setCreating(true)}>Create Your First Group</Button>
+                <Button variant="secondary" onClick={() => navigate('/discover')}>Browse Tournaments</Button>
+              </div>
+            </div>
+          )
           : filtered.map(g => {
             const isMember = myIds.has(g.id)
             const isPending = pendingIds.has(g.id)

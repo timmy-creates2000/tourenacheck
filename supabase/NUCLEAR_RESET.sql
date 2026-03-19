@@ -28,8 +28,11 @@ drop table if exists public.audit_log cascade;
 drop table if exists public.organizer_game_registrations cascade;
 drop table if exists public.verified_organizer_applications cascade;
 drop table if exists public.host_applications cascade;
+drop table if exists public.team_invites cascade;
 drop table if exists public.team_members cascade;
 drop table if exists public.teams cascade;
+drop table if exists public.group_join_requests cascade;
+drop table if exists public.community_join_requests cascade;
 drop table if exists public.platform_revenue cascade;
 drop table if exists public.referrals cascade;
 drop table if exists public.reports cascade;
@@ -181,6 +184,7 @@ create table public.tournaments (
   start_date timestamptz,
   end_date timestamptz,
   registration_deadline timestamptz,
+  group_id uuid references public.groups(id) on delete set null,
   created_at timestamptz not null default now()
 );
 
@@ -296,14 +300,15 @@ create table public.platform_settings (
   value text not null,
   description text,
   updated_at timestamptz not null default now(),
-  updated_by uuid references public.users(id)
-);
-
 create table public.conversations (
   id uuid primary key default gen_random_uuid(),
   participant_a uuid not null references public.users(id) on delete cascade,
   participant_b uuid not null references public.users(id) on delete cascade,
+  last_message text,
   last_message_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique(participant_a, participant_b)
+);last_message_at timestamptz,
   created_at timestamptz not null default now(),
   unique(participant_a, participant_b)
 );
@@ -385,6 +390,7 @@ create table public.groups (
   invite_code text unique default upper(substring(md5(random()::text) from 1 for 8)),
   max_members int not null default 50,
   member_count int not null default 1,
+  tournament_id uuid references public.tournaments(id) on delete cascade,
   status text not null default 'active' check (status in ('active','suspended','deleted')),
   created_at timestamptz not null default now()
 );
@@ -407,12 +413,13 @@ create table public.group_messages (
   is_deleted boolean not null default false,
   created_at timestamptz not null default now()
 );
-
-create table public.notifications (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.users(id) on delete cascade,
   type text not null check (type in (
     'coin_gift','coin_grant','tournament_approved','tournament_rejected',
+    'tournament_start','match_ready','prize_awarded','withdrawal_processed',
+    'withdrawal_failed','new_follower','community_invite','group_invite',
+    'dm_received','mention','system',
+    'host_approved','host_rejected','verified_organizer_approved','verified_organizer_rejected'
+  )),coin_gift','coin_grant','tournament_approved','tournament_rejected',
     'tournament_start','match_ready','prize_awarded','withdrawal_processed',
     'withdrawal_failed','new_follower','community_invite','group_invite',
     'dm_received','mention','system'
@@ -550,7 +557,7 @@ create table public.group_join_requests (
   created_at timestamptz not null default now(),
   unique(group_id, user_id)
 );
-
+ 
 create table public.host_applications (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
@@ -734,10 +741,6 @@ begin
   insert into public.notifications(user_id, type, title, body, data)
   values (p_receiver_id, 'coin_gift', 'You received a coin gift!',
     (select username from public.users where id = p_sender_id) || ' sent you ' || p_amount || ' TC' || coalesce(': ' || p_message, ''),
-    jsonb_build_object('sender_id', p_sender_id, 'amount', p_amount));
-end;
-$func$;
-
 create or replace function admin_grant_coins(
   p_admin_id uuid, p_user_id uuid, p_amount numeric, p_reason text
 ) returns void language plpgsql security definer set search_path = public as $func$
@@ -748,6 +751,112 @@ begin
     p_amount, p_reason, p_admin_id, 'confirmed');
   insert into public.notifications(user_id, type, title, body, data)
   values (p_user_id, 'coin_grant',
+    case when p_amount >= 0 then 'Coins added to your wallet' else 'Coins deducted from your wallet' end,
+    p_reason, jsonb_build_object('amount', p_amount, 'admin_id', p_admin_id));
+end;
+$func$;
+
+create or replace function approve_host_application(
+  p_admin_id uuid, p_application_id uuid
+) returns void language plpgsql security definer set search_path = public as $func$
+declare
+  v_user_id uuid;
+begin
+  -- Get the applicant's user_id
+  select user_id into v_user_id from public.host_applications where id = p_application_id;
+  if v_user_id is null then raise exception 'Application not found'; end if;
+
+  -- Mark application approved
+  update public.host_applications
+  set status = 'approved', reviewed_at = now(), reviewed_by = p_admin_id
+  where id = p_application_id;
+
+  -- Promote user to organizer / host
+  update public.users
+  set role = 'organizer', is_host = true
+  where id = v_user_id;
+
+  -- Notify the user
+  insert into public.notifications(user_id, type, title, body, data)
+  values (v_user_id, 'host_approved',
+    'Host Application Approved!',
+    'Congratulations! You can now host tournaments on Tourena.',
+    jsonb_build_object('application_id', p_application_id));
+end;
+$func$;
+
+create or replace function approve_verified_organizer_application(
+  p_admin_id uuid, p_application_id uuid
+) returns void language plpgsql security definer set search_path = public as $func$
+declare
+  v_user_id uuid;
+begin
+  select user_id into v_user_id from public.verified_organizer_applications where id = p_application_id;
+  if v_user_id is null then raise exception 'Application not found'; end if;
+
+  update public.verified_organizer_applications
+  set status = 'approved', reviewed_at = now(), reviewed_by = p_admin_id
+  where id = p_application_id;
+
+  update public.users
+  set is_verified_organizer = true
+  where id = v_user_id;
+
+  insert into public.notifications(user_id, type, title, body, data)
+  values (v_user_id, 'verified_organizer_approved',
+    'Verified Organizer Status Granted!',
+    'You are now a Verified Organizer on Tourena.',
+    jsonb_build_object('application_id', p_application_id));
+end;
+$func$;
+
+create or replace function approve_tournament(
+  p_admin_id uuid, p_tournament_id uuid
+) returns void language plpgsql security definer set search_path = public as $func$
+declare
+  v_organizer_id uuid;
+  v_title text;
+begin
+  select organizer_id, title into v_organizer_id, v_title
+  from public.tournaments where id = p_tournament_id;
+  if v_organizer_id is null then raise exception 'Tournament not found'; end if;
+
+  update public.tournaments
+  set approval_status = 'approved', status = 'upcoming',
+      approved_at = now(), approved_by = p_admin_id
+  where id = p_tournament_id;
+
+  insert into public.notifications(user_id, type, title, body, data)
+  values (v_organizer_id, 'tournament_approved',
+    'Tournament Approved!',
+    'Your tournament "' || v_title || '" has been approved and is now live.',
+    jsonb_build_object('tournament_id', p_tournament_id));
+end;
+$func$;
+
+create or replace function reject_tournament(
+  p_admin_id uuid, p_tournament_id uuid, p_reason text
+) returns void language plpgsql security definer set search_path = public as $func$
+declare
+  v_organizer_id uuid;
+  v_title text;
+begin
+  select organizer_id, title into v_organizer_id, v_title
+  from public.tournaments where id = p_tournament_id;
+  if v_organizer_id is null then raise exception 'Tournament not found'; end if;
+
+  update public.tournaments
+  set approval_status = 'rejected', status = 'cancelled',
+      rejection_reason = p_reason, approved_by = p_admin_id
+  where id = p_tournament_id;
+
+  insert into public.notifications(user_id, type, title, body, data)
+  values (v_organizer_id, 'tournament_rejected',
+    'Tournament Not Approved',
+    'Your tournament "' || v_title || '" was not approved. Reason: ' || p_reason,
+    jsonb_build_object('tournament_id', p_tournament_id, 'reason', p_reason));
+end;
+$func$;s (p_user_id, 'coin_grant',
     case when p_amount >= 0 then 'Coins added to your wallet' else 'Coins deducted from your wallet' end,
     p_reason, jsonb_build_object('amount', p_amount, 'admin_id', p_admin_id));
 end;
@@ -874,14 +983,18 @@ create policy "platform_settings_admin_write" on public.platform_settings using 
 
 -- REFERRALS
 create policy "referrals_own"    on public.referrals for select using (auth.uid() = referrer_id or auth.uid() = referred_id);
-create policy "referrals_insert" on public.referrals for insert with check (auth.uid() = referrer_id or auth.uid() = referred_id);
-create policy "referrals_update" on public.referrals for update using (auth.uid() = referrer_id or auth.uid() = referred_id);
-
 -- CONVERSATIONS & MESSAGES
-create policy "conversations_own"      on public.conversations for select using (auth.uid() = participant_a or auth.uid() = participant_b);
+create policy "conversations_select"   on public.conversations for select using (auth.uid() = participant_a or auth.uid() = participant_b);
 create policy "conversations_insert"   on public.conversations for insert with check (auth.uid() = participant_a or auth.uid() = participant_b);
-create policy "direct_messages_own"    on public.direct_messages for select using (
+create policy "conversations_update"   on public.conversations for update using (auth.uid() = participant_a or auth.uid() = participant_b);
+create policy "direct_messages_select" on public.direct_messages for select using (
   exists (select 1 from public.conversations c where c.id = conversation_id and (c.participant_a = auth.uid() or c.participant_b = auth.uid()))
+);
+create policy "direct_messages_insert" on public.direct_messages for insert with check (
+  auth.uid() = sender_id and
+  exists (select 1 from public.conversations c where c.id = conversation_id and (c.participant_a = auth.uid() or c.participant_b = auth.uid()))
+);
+create policy "direct_messages_update" on public.direct_messages for update using (auth.uid() = sender_id);() or c.participant_b = auth.uid()))
 );
 create policy "direct_messages_insert" on public.direct_messages for insert with check (auth.uid() = sender_id);
 create policy "direct_messages_update" on public.direct_messages for update using (auth.uid() = sender_id);

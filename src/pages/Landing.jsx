@@ -215,6 +215,7 @@ export default function Landing() {
                     'Earn commission from prize pools',
                     'Create tournaments for 150+ games',
                     'Full analytics and participant management',
+                    'Auto-created group chat for each tournament',
                     'Path to Verified Organizer status',
                     'Build your brand in the gaming community',
                   ].map(b => (
@@ -223,16 +224,23 @@ export default function Landing() {
                     </li>
                   ))}
                 </ul>
-                <Link to="/signup" className="inline-flex bg-accent hover:bg-yellow-400 text-black font-bold px-6 py-3 rounded-xl transition-colors">
-                  Apply to Host
-                </Link>
+                <div className="flex flex-wrap gap-3">
+                  <Link to="/signup" className="inline-flex bg-accent hover:bg-yellow-400 text-black font-bold px-6 py-3 rounded-xl transition-colors">
+                    Apply to Host
+                  </Link>
+                  <Link to="/login" className="inline-flex bg-surface2 hover:bg-surface text-white font-semibold px-6 py-3 rounded-xl transition-colors border border-white/10">
+                    Sign In
+                  </Link>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 {[
                   { icon: '🎪', label: 'Create Events', desc: 'Public or private tournaments' },
                   { icon: '💰', label: 'Earn Commission', desc: 'From every prize pool' },
                   { icon: '📊', label: 'Analytics', desc: 'Track your performance' },
+                  { icon: '💬', label: 'Auto Groups', desc: 'Chat for each tournament' },
                   { icon: '🔮', label: 'Verified Status', desc: 'Unlock premium features' },
+                  { icon: '🌍', label: 'Global Reach', desc: 'Players from everywhere' },
                 ].map(c => (
                   <div key={c.label} className="bg-surface/60 border border-white/[0.08] rounded-2xl p-4 text-center">
                     <div className="text-3xl mb-2">{c.icon}</div>

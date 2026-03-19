@@ -121,6 +121,22 @@ export default function Discover() {
           <span className="gradient-text">Discover</span>
         </h1>
         <p className="text-muted text-base sm:text-lg mb-6">Find tournaments, players, and communities</p>
+        
+        {/* Quick Actions */}
+        <div className="flex flex-wrap justify-center gap-3 mb-6">
+          <Link to="/create-casual-game" className="flex items-center gap-2 bg-accent/20 hover:bg-accent/30 text-accent px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors border border-accent/30">
+            <span className="text-lg">⚡</span> Create Casual Game
+          </Link>
+          {!user?.is_host && (
+            <Link to="/apply-to-host" className="flex items-center gap-2 bg-primary/20 hover:bg-primary/30 text-primary px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors border border-primary/30">
+              <span className="text-lg">🏆</span> Become a Host
+            </Link>
+          )}
+          <Link to="/communities" className="flex items-center gap-2 bg-surface2 hover:bg-surface text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors border border-white/10">
+            <span className="text-lg">👥</span> Join Communities
+          </Link>
+        </div>
+
         <div className="max-w-xl mx-auto relative">
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
           <input
@@ -272,7 +288,17 @@ export default function Discover() {
         <div className="text-center py-20">
           <div className="text-5xl mb-4">🎮</div>
           <h3 className="text-xl font-bold text-white mb-2">No tournaments found</h3>
-          <p className="text-muted">Try adjusting your filters or check back later</p>
+          <p className="text-muted mb-6">Try adjusting your filters or check back later</p>
+          <div className="flex flex-wrap justify-center gap-3">
+            <Link to="/create-casual-game" className="inline-flex items-center gap-2 bg-accent/20 hover:bg-accent/30 text-accent px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors">
+              Create Casual Game
+            </Link>
+            {!user?.is_host && (
+              <Link to="/apply-to-host" className="inline-flex items-center gap-2 bg-primary/20 hover:bg-primary/30 text-primary px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors">
+                Become a Host
+              </Link>
+            )}
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

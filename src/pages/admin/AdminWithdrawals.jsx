@@ -27,7 +27,7 @@ export default function AdminWithdrawals() {
   }, [])
 
   async function fetchWithdrawals() {
-    const { data } = await supabase.from('withdrawals').select('*, users(id, username, avatar_url)').order('created_at', { ascending: false })
+    const { data } = await supabase.from('withdrawals').select('*, user_id(id, username, avatar_url)').order('created_at', { ascending: false })
     setWithdrawals(data ?? [])
     setLoading(false)
   }
@@ -74,7 +74,7 @@ export default function AdminWithdrawals() {
                 Array(5).fill(0).map((_, i) => <tr key={i}><td colSpan={10} className="px-4 py-3"><Skeleton className="h-8" /></td></tr>)
               ) : withdrawals.map(w => (
                 <tr key={w.id} className={`hover:bg-surface2 transition-colors ${w.status === 'failed' ? 'bg-red-500/5' : ''}`}>
-                  <td className="px-3 py-3"><Avatar user={w.users} size={28} showName /></td>
+                  <td className="px-3 py-3"><Avatar user={w.user_id} size={28} showName /></td>
                   <td className="px-3 py-3 text-muted capitalize">{w.withdrawal_type?.replace('_', ' ')}</td>
                   <td className="px-3 py-3 text-white">🪙 {formatTC(w.gross_tc)}</td>
                   <td className="px-3 py-3 text-red-400">🪙 {formatTC(w.tourena_commission_tc)}</td>

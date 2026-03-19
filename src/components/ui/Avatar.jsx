@@ -27,8 +27,18 @@ export default function Avatar({ user, size = 32, showName = false, showTag = fa
   const px = `${size}px`
 
   const img = user.avatar_url
-    ? <img src={user.avatar_url} alt={user.username} style={{ width: px, height: px }} className="rounded-full object-cover flex-shrink-0" />
-    : <div style={{ width: px, height: px, fontSize: size * 0.35 }} className="rounded-full bg-primary/30 border border-primary/50 flex items-center justify-center text-white font-bold flex-shrink-0">{initials}</div>
+    ? <img 
+        src={user.avatar_url} 
+        alt={user.username} 
+        style={{ width: px, height: px }} 
+        className="rounded-full object-cover flex-shrink-0 border-2 border-white/10"
+        loading="lazy"
+        onError={(e) => {
+          e.target.onerror = null
+          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username ?? 'U')}&background=7C3AED&color=fff&size=${size * 2}`
+        }}
+      />
+    : <div style={{ width: px, height: px, fontSize: size * 0.35 }} className="rounded-full bg-primary/30 border-2 border-primary/50 flex items-center justify-center text-white font-bold flex-shrink-0">{initials}</div>
 
   const gameTag = showTag && user.game_tag ? <span className="text-xs text-muted">#{user.game_tag}</span> : null
 

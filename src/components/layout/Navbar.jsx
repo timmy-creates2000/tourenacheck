@@ -18,10 +18,10 @@ function TourenaLogo() {
 
 const NAV_LINKS = {
   organizer: [
+    { to: '/discover', label: 'Discover' },
     { to: '/my-tournaments', label: 'My Tournaments' },
-    { to: '/create-tournament', label: 'Create Tournament' },
-    { to: '/verified-organizers', label: 'Verified Organizers' },
     { to: '/analytics', label: 'Analytics' },
+    { to: '/verified-organizers', label: 'Verified Organizers' },
     { to: '/teams', label: 'Teams' },
     { to: '/communities', label: 'Communities' },
     { to: '/groups', label: 'Groups' },
@@ -32,10 +32,9 @@ const NAV_LINKS = {
   ],
   player: [
     { to: '/discover', label: 'Discover' },
-    { to: '/verified-organizers', label: 'Verified Organizers' },
-    { to: '/create-casual-game', label: 'Create Casual Game' },
     { to: '/tournaments', label: 'My Tournaments' },
     { to: '/leaderboard', label: 'Leaderboard' },
+    { to: '/verified-organizers', label: 'Verified Organizers' },
     { to: '/teams', label: 'Teams' },
     { to: '/communities', label: 'Communities' },
     { to: '/groups', label: 'Groups' },
@@ -148,6 +147,27 @@ export default function Navbar() {
 
         {/* Right side */}
         <div className="flex items-center gap-3">
+          {/* Quick Actions for Organizers */}
+          {(profile.is_host || profile.is_verified_organizer || profile.role === 'organizer') && (
+            <Link to="/create-tournament" className="hidden lg:flex items-center gap-1.5 bg-primary/20 hover:bg-primary/30 text-primary px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors">
+              <span>+</span> Tournament
+            </Link>
+          )}
+
+          {/* Quick Actions for Players */}
+          {!profile.is_admin && !profile.is_moderator && profile.role === 'player' && (
+            <>
+              <Link to="/create-casual-game" className="hidden lg:flex items-center gap-1.5 bg-accent/20 hover:bg-accent/30 text-accent px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors">
+                <span>+</span> Casual Game
+              </Link>
+              {!profile.is_host && (
+                <Link to="/apply-to-host" className="hidden xl:flex items-center gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-primary/20">
+                  Become Host
+                </Link>
+              )}
+            </>
+          )}
+
           {/* Search link */}
           {!profile.is_admin && !profile.is_moderator && (
             <Link to="/search" className="hidden sm:block px-3 py-1.5 text-sm text-muted hover:text-white hover:bg-surface2 rounded-lg transition-colors">

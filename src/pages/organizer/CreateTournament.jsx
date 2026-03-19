@@ -79,6 +79,35 @@ export default function CreateTournament() {
       const { data, error } = await supabase.from('tournaments').insert(payload).select().single()
       if (error) throw error
 
+      // Auto-create tournament group for communication
+      if (!isDraft) {
+        const groupName = `${form.title} - Tournament Chat`
+        const groupDesc = `Official group chat for ${form.title}. Discuss strategies, ask questions, and connect with other participants.`
+        const { data: group, error: groupErr } = await supabase.from('groups')
+          .insert({
+            name: groupName,
+            description: groupDesc,
+            owner_id: profile.id,
+            is_private: false,
+            tournament_id: data.id,
+            max_members: form.max_participants + 10, // Allow some extra for spectators
+          })
+          .select()
+          .single()
+        
+        if (!groupErr && group) {
+          // Add organizer as owner
+          await supabase.from('group_members').insert({
+            group_id: group.id,
+            user_id: profile.id,
+            role: 'owner'
+          })
+          
+          // Link group to tournament
+          await supabase.from('tournaments').update({ group_id: group.id }).eq('id', data.id)
+        }
+      }
+
       if (!isDraft && isPractice) {
         await supabase.rpc('debit_coins', { p_user_id: profile.id, p_amount: PLATFORM_FEE_TC, p_type: 'practice_fee', p_description: `Practice fee for: ${form.title}`, p_tournament_id: data.id })
         await supabase.from('platform_revenue').insert({ revenue_type: 'practice_fee', amount_tc: PLATFORM_FEE_TC, amount_fiat: 0, currency: profile.preferred_currency, user_id: profile.id, tournament_id: data.id })

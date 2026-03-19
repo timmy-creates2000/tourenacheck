@@ -96,6 +96,12 @@ export default function TournamentDetail() {
           p_description: `Entry fee: ${t.title}`,
           p_tournament_id: id,
         })
+        // For pool games, add stake to prize pool
+        if (t.rules?.startsWith('POOL_GAME')) {
+          await supabase.from('tournaments').update({
+            prize_pool_tc: (t.prize_pool_tc ?? 0) + t.entry_fee_tc
+          }).eq('id', id)
+        }
         await refreshProfile()
       }
 
@@ -177,8 +183,11 @@ export default function TournamentDetail() {
           <Card className="p-5 space-y-4">
             {!t.is_practice && (
               <div className="text-center">
-                <p className="text-xs text-muted mb-1">Prize Pool</p>
+                <p className="text-xs text-muted mb-1">{t.rules?.startsWith('POOL_GAME') ? 'Current Pool' : 'Prize Pool'}</p>
                 <p className="text-3xl font-black text-accent">{formatTC(t.prize_pool_tc ?? 0)}</p>
+                {t.rules?.startsWith('POOL_GAME') && (
+                  <p className="text-xs text-muted mt-1">Stake: {formatTC(t.entry_fee_tc ?? 0)} per player</p>
+                )}
               </div>
             )}
             <div className="space-y-2 text-sm">

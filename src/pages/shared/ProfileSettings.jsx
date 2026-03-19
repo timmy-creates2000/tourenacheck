@@ -109,6 +109,29 @@ export default function ProfileSettings() {
     <PageWrapper className="max-w-2xl">
       <h1 className="text-3xl font-black text-white mb-8">⚙️ Settings</h1>
 
+      {/* Host Application CTA - Show prominently for players */}
+      {!profile?.is_host && !profile?.is_verified_organizer && profile?.role === 'player' && (
+        <Card className="p-6 mb-6 border-primary/30 bg-gradient-to-br from-primary/10 to-accent/5">
+          <div className="flex items-start gap-4">
+            <div className="text-4xl">🏆</div>
+            <div className="flex-1">
+              <h2 className="text-xl font-bold text-white mb-2">Want to Host Tournaments?</h2>
+              <p className="text-sm text-muted mb-4">
+                Apply to become a tournament host and start creating public tournaments. Earn commission from prize pools and build your reputation in the gaming community.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="primary" onClick={() => navigate('/apply-to-host')}>
+                  Apply to Host Tournaments
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => navigate('/discover')}>
+                  Browse Tournaments
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Avatar & Identity */}
       <Card className="p-6 mb-6">
         <h2 className="text-lg font-bold text-white mb-4">Avatar & Identity</h2>

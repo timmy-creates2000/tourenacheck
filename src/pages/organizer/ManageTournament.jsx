@@ -160,7 +160,7 @@ export default function ManageTournament() {
       {tab === 'Bracket' && <BracketTab tournament={tournament} participants={participants} matches={matches} onRefresh={fetchMatches} />}
       {tab === 'Matches' && <MatchesTab matches={matches} tournamentId={id} onRefresh={fetchMatches} />}
       {tab === 'Room & Chat' && <RoomChatTab tournament={tournament} onRefresh={fetchTournament} />}
-      {tab === 'Financials' && <FinancialsTab tournament={tournament} participants={participants} />}
+      {tab === 'Financials' && <FinancialsTab tournament={tournament} participants={participants} onRefresh={fetchAll} />}
       {tab === 'Settings' && <SettingsTab tournament={tournament} onRefresh={fetchTournament} />}
     </PageWrapper>
   )
@@ -423,18 +423,108 @@ function RoomChatTab({ tournament, onRefresh }) {
   )
 }
 
-function FinancialsTab({ tournament: t, participants }) {
+function FinancialsTab({ tournament: t, participants, onRefresh }) {
+  const [payoutLoading, setPayoutLoading] = useState(false)
+  const [winnerModal, setWinnerModal] = useState(false)
+  const [selectedWinner, setSelectedWinner] = useState('')
+
+  const isPoolGame = t.rules?.startsWith('POOL_GAME')
+  const poolCommission = isPoolGame ? parseFloat(t.rules?.match(/commission=([\d.]+)/)?.[1] ?? '0.10') : WITHDRAWAL_COMMISSION
+
+  const totalPool = t.prize_pool_tc ?? 0
+  const commission = isPoolGame
+    ? Math.ceil(totalPool * poolCommission)
+    : Math.floor(((t.current_participants ?? 0) * (t.entry_fee_tc ?? 0) - totalPool) * WITHDRAWAL_COMMISSION)
+  const winnerPrize = isPoolGame ? totalPool - commission : totalPool
+
+  async function payoutWinner() {
+    if (!selectedWinner) { toast.error('Select a winner'); return }
+    setPayoutLoading(true)
+    try {
+      // Mark winner in participants
+      await supabase.from('participants').update({ status: 'winner' }).eq('tournament_id', t.id).eq('user_id', selectedWinner)
+      // Credit winner
+      await supabase.rpc('credit_coins', {
+        p_user_id: selectedWinner,
+        p_amount: winnerPrize,
+        p_type: 'prize',
+        p_description: `Pool prize: ${t.title}`,
+        p_tournament_id: t.id,
+      })
+      // Mark tournament completed
+      await supabase.from('tournaments').update({ status: 'completed', prize_pool_tc: winnerPrize }).eq('id', t.id)
+      toast.success(`Winner paid ${formatTC(winnerPrize)}!`)
+      setWinnerModal(false)
+      onRefresh()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setPayoutLoading(false)
+    }
+  }
+
+  if (isPoolGame) {
+    const alreadyPaid = t.status === 'completed'
+    const winner = participants.find(p => p.status === 'winner')
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {[
+            { label: 'Total Pool', value: formatTC(totalPool) },
+            { label: 'Platform Fee (10%)', value: formatTC(commission) },
+            { label: 'Winner Gets', value: formatTC(winnerPrize) },
+          ].map((s, i) => (
+            <Card key={i} className="p-4 text-center">
+              <div className="text-lg font-black text-accent">{s.value}</div>
+              <div className="text-xs text-muted">{s.label}</div>
+            </Card>
+          ))}
+        </div>
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-bold text-white">Pool Payout</p>
+              <p className="text-xs text-muted">{participants.length} players · {formatTC(t.entry_fee_tc ?? 0)} stake each</p>
+            </div>
+            {alreadyPaid
+              ? <div className="text-green-400 text-sm font-bold">✓ Paid to {winner?.users?.username ?? 'winner'}</div>
+              : <Button onClick={() => setWinnerModal(true)} disabled={participants.length < 2}>Declare Winner & Pay</Button>
+            }
+          </div>
+        </Card>
+
+        <Modal open={winnerModal} onClose={() => setWinnerModal(false)} title="Declare Winner">
+          <div className="space-y-4">
+            <p className="text-sm text-muted">Select the winner. They will receive <span className="text-accent font-bold">{formatTC(winnerPrize)}</span> immediately.</p>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {participants.map(p => (
+                <label key={p.user_id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${selectedWinner === p.user_id ? 'border-primary bg-primary/10' : 'border-white/10 hover:border-white/20'}`}>
+                  <input type="radio" name="winner" value={p.user_id} checked={selectedWinner === p.user_id} onChange={e => setSelectedWinner(e.target.value)} className="accent-primary" />
+                  <Avatar user={p.users} size={32} showName />
+                </label>
+              ))}
+            </div>
+            <Button className="w-full" loading={payoutLoading} onClick={payoutWinner}>
+              Confirm & Pay {formatTC(winnerPrize)}
+            </Button>
+          </div>
+        </Modal>
+      </div>
+    )
+  }
+
+  // Regular tournament financials
   const entryFees = (t.current_participants ?? 0) * (t.entry_fee_tc ?? 0)
-  const gross = entryFees - (t.prize_pool_tc ?? 0)
-  const commission = Math.floor(gross * WITHDRAWAL_COMMISSION)
-  const net = gross - commission
+  const gross = entryFees - totalPool
+  const regularCommission = Math.floor(gross * WITHDRAWAL_COMMISSION)
+  const net = gross - regularCommission
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {[
           { label: 'Entry Fees Collected', value: `🪙 ${formatTC(entryFees)}` },
-          { label: 'Prize Pool', value: `🪙 ${formatTC(t.prize_pool_tc ?? 0)}` },
+          { label: 'Prize Pool', value: `🪙 ${formatTC(totalPool)}` },
           { label: 'Net Earnings', value: `🪙 ${formatTC(Math.max(0, net))}` },
         ].map((s, i) => (
           <Card key={i} className="p-4 text-center">
@@ -447,9 +537,9 @@ function FinancialsTab({ tournament: t, participants }) {
         <h3 className="text-sm font-bold text-white mb-3">Earnings Breakdown</h3>
         <div className="space-y-2 text-sm">
           <div className="flex justify-between"><span className="text-muted">Entry Fees ({t.current_participants} × {formatTC(t.entry_fee_tc ?? 0)})</span><span className="text-white">🪙 {formatTC(entryFees)}</span></div>
-          <div className="flex justify-between"><span className="text-muted">Prize Pool</span><span className="text-red-400">- 🪙 {formatTC(t.prize_pool_tc ?? 0)}</span></div>
+          <div className="flex justify-between"><span className="text-muted">Prize Pool</span><span className="text-red-400">- 🪙 {formatTC(totalPool)}</span></div>
           <div className="flex justify-between"><span className="text-muted">Gross Earnings</span><span className="text-white">🪙 {formatTC(gross)}</span></div>
-          <div className="flex justify-between"><span className="text-muted">Tourena {WITHDRAWAL_COMMISSION * 100}% commission</span><span className="text-red-400">- 🪙 {formatTC(commission)}</span></div>
+          <div className="flex justify-between"><span className="text-muted">Tourena {WITHDRAWAL_COMMISSION * 100}% commission</span><span className="text-red-400">- 🪙 {formatTC(regularCommission)}</span></div>
           <div className="flex justify-between font-bold border-t border-white/10 pt-2 mt-2"><span className="text-white">You Withdraw</span><span className="text-accent">🪙 {formatTC(Math.max(0, net))}</span></div>
         </div>
       </Card>

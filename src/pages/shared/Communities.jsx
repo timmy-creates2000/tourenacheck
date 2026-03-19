@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import PageWrapper from '../../components/layout/PageWrapper'
@@ -11,6 +11,7 @@ import toast from 'react-hot-toast'
 
 export default function Communities() {
   const { user, profile } = useAuth()
+  const navigate = useNavigate()
   const [communities, setCommunities] = useState([])
   const [myIds, setMyIds] = useState(new Set())
   const [pendingIds, setPendingIds] = useState(new Set()) // communities where I have a pending request
@@ -159,7 +160,24 @@ export default function Communities() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {loading ? Array(6).fill(0).map((_, i) => <Skeleton key={i} className="h-44 rounded-xl" />)
-          : filtered.length === 0 ? <div className="col-span-3 text-center py-16 text-muted">No communities found</div>
+          : filtered.length === 0 ? (
+            <div className="col-span-3 text-center py-16">
+              <div className="text-5xl mb-4">🌍</div>
+              <h3 className="text-xl font-bold text-white mb-2">No communities found</h3>
+              <p className="text-muted mb-6">
+                {tab === 'mine' 
+                  ? 'You haven\'t joined any communities yet. Join existing communities or create your own!'
+                  : 'No public communities available. Create the first one and build your gaming community!'}
+              </p>
+              <div className="flex flex-wrap justify-center gap-3">
+                {(profile?.role === 'organizer' || profile?.is_admin || profile?.is_host) && (
+                  <Button onClick={() => setCreating(true)}>Create Community</Button>
+                )}
+                <Button variant="secondary" onClick={() => navigate('/discover')}>Browse Tournaments</Button>
+                <Button variant="secondary" onClick={() => navigate('/groups')}>Explore Groups</Button>
+              </div>
+            </div>
+          )
           : filtered.map(c => {
             const isMember = myIds.has(c.id)
             const isPending = pendingIds.has(c.id)
