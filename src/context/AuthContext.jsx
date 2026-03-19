@@ -18,9 +18,12 @@ function clearStorage() {
 
 export function AuthProvider({ children }) {
   // Seed state from localStorage immediately — no blank flash on refresh
+  // Use refs to read once at mount time only
+  const hasCachedUser = useRef(!!loadFromStorage(USER_KEY))
   const [user, setUser]       = useState(() => loadFromStorage(USER_KEY))
   const [profile, setProfile] = useState(() => loadFromStorage(PROFILE_KEY))
-  const [loading, setLoading] = useState(true)
+  // If we have cached data, start as NOT loading — app renders immediately
+  const [loading, setLoading] = useState(!hasCachedUser.current)
   const loadingTimerRef = useRef(null)
 
   function startLoadingTimeout() {
@@ -62,9 +65,10 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let mounted = true
-    startLoadingTimeout()
+    // Only start timeout if we don't have cached data (i.e., loading is true)
+    if (!hasCachedUser.current) startLoadingTimeout()
 
-    // Fast path: no session → clear cache and stop loading immediately
+    // Fast path: check session — if none, clear cache immediately
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!mounted) return
       if (!session) {
@@ -72,6 +76,7 @@ export function AuthProvider({ children }) {
         setAndCacheProfile(null)
         stopLoading()
       }
+      // If session exists, onAuthStateChange will handle it
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
