@@ -209,6 +209,14 @@ function OverviewTab({ tournament: t, participants }) {
 }
 
 function ParticipantsTab({ participants, tournamentId, onRefresh }) {
+  const [tab, setTab] = useState('all')
+
+  async function updateStatus(userId, status) {
+    await supabase.from('participants').update({ status }).eq('tournament_id', tournamentId).eq('user_id', userId)
+    onRefresh()
+    toast.success(status === 'approved' ? 'Participant approved' : 'Participant rejected')
+  }
+
   async function removeParticipant(userId) {
     if (!confirm('Remove this participant?')) return
     await supabase.from('participants').delete().eq('tournament_id', tournamentId).eq('user_id', userId)
@@ -216,27 +224,44 @@ function ParticipantsTab({ participants, tournamentId, onRefresh }) {
     toast.success('Participant removed')
   }
 
+  const pending = participants.filter(p => p.status === 'pending')
+  const approved = participants.filter(p => p.status === 'approved' || p.status === 'registered')
+  const shown = tab === 'pending' ? pending : tab === 'approved' ? approved : participants
+
   return (
     <Card>
-      <div className="p-4 border-b border-white/[0.06] flex justify-between items-center">
-        <h3 className="font-bold text-white">{participants.length} Participants</h3>
+      <div className="p-4 border-b border-white/[0.06] flex flex-wrap gap-3 justify-between items-center">
+        <div className="flex gap-2">
+          {[['all', 'All', participants.length], ['pending', 'Pending', pending.length], ['approved', 'Approved', approved.length]].map(([v, l, c]) => (
+            <button key={v} onClick={() => setTab(v)}
+              className={`px-3 py-1 rounded-lg text-sm font-semibold transition-colors ${tab === v ? 'bg-primary text-white' : 'text-muted hover:text-white'}`}>
+              {l} {c > 0 && <span className="ml-1 text-xs opacity-70">{c}</span>}
+            </button>
+          ))}
+        </div>
         <Button size="sm" variant="secondary" onClick={() => {
           const csv = ['Username,Game Tag,Status,Registered'].concat(participants.map(p => `${p.users?.username},${p.game_tag},${p.status},${p.registered_at}`)).join('\n')
           const a = document.createElement('a'); a.href = 'data:text/csv,' + encodeURIComponent(csv); a.download = 'participants.csv'; a.click()
         }}>Export CSV</Button>
       </div>
       <div className="divide-y divide-white/[0.06]">
-        {participants.length === 0 ? (
-          <div className="text-center py-12 text-muted">No participants yet</div>
-        ) : participants.map(p => (
+        {shown.length === 0 ? (
+          <div className="text-center py-12 text-muted">No participants</div>
+        ) : shown.map(p => (
           <div key={p.id} className="flex items-center justify-between p-4 hover:bg-surface2 transition-colors">
             <div className="flex items-center gap-3">
               <Avatar user={p.users} size={36} showName />
               {p.game_tag && <span className="text-xs text-muted">#{p.game_tag}</span>}
               {p.team_name && <Badge color="purple">{p.team_name}</Badge>}
             </div>
-            <div className="flex items-center gap-3">
-              <Badge color={p.status === 'winner' ? 'gold' : p.status === 'eliminated' ? 'red' : 'gray'}>{p.status}</Badge>
+            <div className="flex items-center gap-2">
+              <Badge color={p.status === 'winner' ? 'gold' : p.status === 'eliminated' ? 'red' : p.status === 'pending' ? 'yellow' : p.status === 'approved' ? 'green' : 'gray'}>{p.status}</Badge>
+              {p.status === 'pending' && (
+                <>
+                  <button onClick={() => updateStatus(p.user_id, 'approved')} className="text-xs px-2 py-1 bg-green-500/20 text-green-400 hover:bg-green-500/30 rounded transition-colors">Approve</button>
+                  <button onClick={() => updateStatus(p.user_id, 'rejected')} className="text-xs px-2 py-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded transition-colors">Reject</button>
+                </>
+              )}
               <button onClick={() => removeParticipant(p.user_id)} className="text-muted hover:text-red-400 transition-colors text-xs">Remove</button>
             </div>
           </div>

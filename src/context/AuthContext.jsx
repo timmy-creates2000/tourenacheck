@@ -191,9 +191,11 @@ export function AuthProvider({ children }) {
   }
 
   async function signOut() {
+    // Clear cache and state immediately — don't wait for Supabase
+    clearStorage()
+    setUser(null)
+    setProfile(null)
     await supabase.auth.signOut()
-    setAndCacheUser(null)
-    setAndCacheProfile(null)
   }
 
   async function refreshProfile() {

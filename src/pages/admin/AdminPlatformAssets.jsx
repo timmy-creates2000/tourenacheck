@@ -22,8 +22,10 @@ export default function AdminPlatformAssets() {
     name: '',
     description: '',
     icon: '',
+    iconType: 'emoji', // 'emoji' | 'image'
     color: '#FFD700'
   })
+  const [badgeUploading, setBadgeUploading] = useState(false)
 
   useEffect(() => {
     fetchBadges()
@@ -144,13 +146,32 @@ export default function AdminPlatformAssets() {
         name: badge.name,
         description: badge.description,
         icon: badge.icon,
+        iconType: badge.icon?.startsWith('http') ? 'image' : 'emoji',
         color: badge.color
       })
     } else {
       setEditingBadge(null)
-      setBadgeForm({ name: '', description: '', icon: '', color: '#FFD700' })
+      setBadgeForm({ name: '', description: '', icon: '', iconType: 'emoji', color: '#FFD700' })
     }
     setBadgeModal(true)
+  }
+
+  async function handleBadgeImageUpload(file) {
+    if (!file) return
+    setBadgeUploading(true)
+    try {
+      const ext = file.name.split('.').pop()
+      const path = `badges/${Date.now()}.${ext}`
+      const { error } = await supabase.storage.from('media').upload(path, file, { upsert: true, contentType: file.type })
+      if (error) throw error
+      const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path)
+      setBadgeForm(p => ({ ...p, icon: publicUrl }))
+      toast.success('Image uploaded')
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setBadgeUploading(false)
+    }
   }
 
   return (
@@ -290,10 +311,12 @@ export default function AdminPlatformAssets() {
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-3">
                     <div 
-                      className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
+                      className="w-12 h-12 rounded-full flex items-center justify-center text-2xl overflow-hidden"
                       style={{ backgroundColor: `${badge.color}20`, border: `2px solid ${badge.color}` }}
                     >
-                      {badge.icon}
+                      {badge.icon?.startsWith('http')
+                        ? <img src={badge.icon} alt={badge.name} className="w-full h-full object-cover" />
+                        : badge.icon}
                     </div>
                     <div>
                       <p className="text-white font-semibold">{badge.name}</p>
@@ -345,13 +368,40 @@ export default function AdminPlatformAssets() {
               rows={2}
             />
             
-            <Input
-              label="Icon (Emoji or Text)"
-              placeholder="🏆 or ⭐ or any emoji"
-              value={badgeForm.icon}
-              onChange={e => setBadgeForm(p => ({ ...p, icon: e.target.value }))}
-              required
-            />
+            {/* Icon type toggle */}
+            <div>
+              <label className="block text-sm font-medium text-white/80 mb-2">Icon Type</label>
+              <div className="flex gap-2">
+                <button onClick={() => setBadgeForm(p => ({ ...p, iconType: 'emoji', icon: '' }))}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${badgeForm.iconType === 'emoji' ? 'bg-primary text-white' : 'bg-surface2 text-muted hover:text-white'}`}>
+                  Emoji
+                </button>
+                <button onClick={() => setBadgeForm(p => ({ ...p, iconType: 'image', icon: '' }))}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${badgeForm.iconType === 'image' ? 'bg-primary text-white' : 'bg-surface2 text-muted hover:text-white'}`}>
+                  Image Upload
+                </button>
+              </div>
+            </div>
+
+            {badgeForm.iconType === 'emoji' ? (
+              <Input
+                label="Emoji Icon"
+                placeholder="🏆 or ⭐ or any emoji"
+                value={badgeForm.icon}
+                onChange={e => setBadgeForm(p => ({ ...p, icon: e.target.value }))}
+                required
+              />
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-white/80 mb-2">Badge Image</label>
+                <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-surface2 hover:bg-surface border border-white/10 rounded-lg text-sm text-white transition-colors">
+                  <input type="file" accept="image/*" className="hidden" onChange={e => handleBadgeImageUpload(e.target.files[0])} />
+                  <Upload size={16} />
+                  {badgeUploading ? 'Uploading...' : 'Upload Badge Image'}
+                </label>
+                {badgeForm.icon && <img src={badgeForm.icon} alt="badge preview" className="mt-2 w-12 h-12 rounded-full object-cover border-2 border-white/20" />}
+              </div>
+            )}
             
             <div>
               <label className="block text-sm font-medium text-white/80 mb-2">Badge Color</label>
@@ -376,10 +426,12 @@ export default function AdminPlatformAssets() {
               <p className="text-sm text-muted mb-2">Preview:</p>
               <div className="flex items-center gap-3">
                 <div 
-                  className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
+                  className="w-12 h-12 rounded-full flex items-center justify-center text-2xl overflow-hidden"
                   style={{ backgroundColor: `${badgeForm.color}20`, border: `2px solid ${badgeForm.color}` }}
                 >
-                  {badgeForm.icon || '?'}
+                  {badgeForm.icon?.startsWith('http')
+                    ? <img src={badgeForm.icon} alt="badge" className="w-full h-full object-cover" />
+                    : (badgeForm.icon || '?')}
                 </div>
                 <div>
                   <p className="text-white font-semibold">{badgeForm.name || 'Badge Name'}</p>

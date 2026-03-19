@@ -35,12 +35,12 @@ export default function BottomNav() {
             <Link
               key={to}
               to={to}
-              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-semibold transition-colors ${
+              aria-label={label}
+              className={`flex-1 flex flex-col items-center justify-center py-3 transition-colors ${
                 active ? 'text-primary' : 'text-muted hover:text-white'
               }`}
             >
-              <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
-              <span className="leading-tight">{label}</span>
+              <Icon size={22} strokeWidth={active ? 2.5 : 1.8} />
             </Link>
           )
         })}

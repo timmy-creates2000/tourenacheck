@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Search } from 'lucide-react'
+import { Search, Users, Trophy } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../context/AuthContext'
 import PageWrapper from '../../components/layout/PageWrapper'
 import TournamentCard from '../../components/tournament/TournamentCard'
 import { SkeletonCard } from '../../components/ui/Skeleton'
@@ -9,11 +10,13 @@ import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import { GAME_TYPES } from '../../lib/constants'
-import { GAME_NAMES, GAME_PLATFORMS } from '../../lib/games'
+import { GAME_NAMES } from '../../lib/games'
 import { formatTC, getCountryFlag } from '../../lib/utils'
 import toast from 'react-hot-toast'
 
 export default function Discover() {
+  const { user } = useAuth()
+  const [activeTab, setActiveTab] = useState('tournaments')
   const [tournaments, setTournaments] = useState([])
   const [winners, setWinners] = useState([])
   const [sponsors, setSponsors] = useState([])
@@ -25,11 +28,42 @@ export default function Discover() {
   const [joinModal, setJoinModal] = useState(false)
   const [joinCode, setJoinCode] = useState('')
 
+  // Players tab state
+  const [players, setPlayers] = useState([])
+  const [playerSearch, setPlayerSearch] = useState('')
+  const [playersLoading, setPlayersLoading] = useState(false)
+  const [following, setFollowing] = useState(new Set())
+
   useEffect(() => {
     fetchTournaments()
     fetchRecentWinners()
     fetchSponsors()
   }, [filters])
+
+  useEffect(() => {
+    if (activeTab === 'players') fetchPlayers()
+  }, [activeTab, playerSearch])
+
+  async function fetchPlayers() {
+    setPlayersLoading(true)
+    let q = supabase.from('users').select('id, username, avatar_url, country, bio, favorite_games, role').neq('is_admin', true).neq('is_moderator', true).order('created_at', { ascending: false })
+    if (playerSearch) q = q.or(`username.ilike.%${playerSearch}%,bio.ilike.%${playerSearch}%`)
+    const { data } = await q.limit(40)
+    setPlayers(data ?? [])
+    setPlayersLoading(false)
+  }
+
+  async function toggleFollow(targetId) {
+    if (!user) { toast.error('Login to follow players'); return }
+    if (following.has(targetId)) {
+      await supabase.from('follows').delete().eq('follower_id', user.id).eq('following_id', targetId)
+      setFollowing(prev => { const s = new Set(prev); s.delete(targetId); return s })
+    } else {
+      await supabase.from('follows').insert({ follower_id: user.id, following_id: targetId })
+      setFollowing(prev => new Set([...prev, targetId]))
+      toast.success('Following!')
+    }
+  }
 
   async function fetchTournaments() {
     setLoading(true)
@@ -84,16 +118,64 @@ export default function Discover() {
       {/* Hero */}
       <div className="text-center py-8 sm:py-10 mb-6 sm:mb-8">
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-black mb-3">
-          <span className="gradient-text">Find Your Next Tournament</span>
+          <span className="gradient-text">Discover</span>
         </h1>
-        <p className="text-muted text-base sm:text-lg mb-6">Compete, win, and earn Tourena Coins</p>
+        <p className="text-muted text-base sm:text-lg mb-6">Find tournaments, players, and communities</p>
         <div className="max-w-xl mx-auto relative">
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tournaments or games..."
-            className="w-full bg-surface border border-white/10 rounded-xl pl-11 pr-4 py-3 text-white placeholder-muted focus:outline-none focus:border-primary transition-colors" />
+          <input
+            value={activeTab === 'players' ? playerSearch : search}
+            onChange={e => activeTab === 'players' ? setPlayerSearch(e.target.value) : setSearch(e.target.value)}
+            placeholder={activeTab === 'players' ? 'Search players by name or bio...' : 'Search tournaments or games...'}
+            className="w-full bg-surface border border-white/10 rounded-xl pl-11 pr-4 py-3 text-white placeholder-muted focus:outline-none focus:border-primary transition-colors"
+          />
         </div>
       </div>
 
+      {/* Tab switcher */}
+      <div className="flex gap-2 mb-6">
+        <button onClick={() => setActiveTab('tournaments')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm transition-colors ${activeTab === 'tournaments' ? 'bg-primary text-white' : 'bg-surface text-muted hover:text-white'}`}>
+          <Trophy size={16} /> Tournaments
+        </button>
+        <button onClick={() => setActiveTab('players')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm transition-colors ${activeTab === 'players' ? 'bg-primary text-white' : 'bg-surface text-muted hover:text-white'}`}>
+          <Users size={16} /> Players
+        </button>
+      </div>
+
+      {activeTab === 'players' ? (
+        <div>
+          {playersLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              {Array(10).fill(0).map((_, i) => <div key={i} className="h-40 bg-surface rounded-xl animate-pulse" />)}
+            </div>
+          ) : players.length === 0 ? (
+            <div className="text-center py-20 text-muted">No players found</div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              {players.map(p => (
+                <div key={p.id} className="bg-surface border border-white/[0.08] rounded-xl p-4 flex flex-col items-center text-center hover:border-primary/30 transition-colors">
+                  <Avatar user={p} size={56} linkable />
+                  <p className="text-sm font-bold text-white mt-2 truncate w-full">{p.username}</p>
+                  {p.country && <p className="text-xs text-muted">{getCountryFlag(p.country)} {p.country}</p>}
+                  {p.bio && <p className="text-xs text-muted mt-1 line-clamp-2">{p.bio}</p>}
+                  {p.favorite_games?.length > 0 && (
+                    <p className="text-xs text-accent mt-1 truncate w-full">{p.favorite_games.slice(0, 2).join(', ')}</p>
+                  )}
+                  {user && p.id !== user.id && (
+                    <button onClick={() => toggleFollow(p.id)}
+                      className={`mt-3 w-full py-1.5 rounded-lg text-xs font-semibold transition-colors ${following.has(p.id) ? 'bg-surface2 text-muted hover:text-red-400' : 'bg-primary/20 text-primary hover:bg-primary/30'}`}>
+                      {following.has(p.id) ? 'Following' : 'Follow'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
       {/* Sponsor Banners */}
       {sponsors.length > 0 && (
         <div className="flex gap-3 overflow-x-auto pb-2 mb-6 scrollbar-hide">
@@ -223,6 +305,8 @@ export default function Discover() {
           <Button onClick={handleJoinWithCode} className="w-full">Join Tournament</Button>
         </div>
       </Modal>
+        </>
+      )}
     </PageWrapper>
   )
 }

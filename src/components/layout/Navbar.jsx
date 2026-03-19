@@ -128,7 +128,7 @@ export default function Navbar() {
 
   async function handleLogout() {
     await signOut()
-    navigate('/login')
+    window.location.href = '/login'
   }
 
   return (
