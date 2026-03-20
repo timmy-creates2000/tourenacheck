@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Send, Search, ArrowLeft, Check, CheckCheck } from 'lucide-react'
+import { Send, Search, ArrowLeft, Check, CheckCheck, Smile, Reply, Edit2, Paperclip, X, Download } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import PageWrapper from '../../components/layout/PageWrapper'
@@ -24,17 +24,26 @@ export default function Messages() {
   const [convos, setConvos] = useState([])
   const [active, setActive] = useState(null)
   const [messages, setMessages] = useState([])
+  const [reactions, setReactions] = useState({})
   const [text, setText] = useState('')
   const [loadingConvos, setLoadingConvos] = useState(true)
   const [loadingMsgs, setLoadingMsgs] = useState(false)
   const [sending, setSending] = useState(false)
   const [search, setSearch] = useState('')
   const [searchResults, setSearchResults] = useState([])
+  const [replyTo, setReplyTo] = useState(null)
+  const [editingMsg, setEditingMsg] = useState(null)
+  const [editText, setEditText] = useState('')
+  const [showEmojiPicker, setShowEmojiPicker] = useState(null)
+  const [uploading, setUploading] = useState(false)
   const bottomRef = useRef(null)
   const channelRef = useRef(null)
   const convoChannelRef = useRef(null)
   const activeRef = useRef(null)
+  const fileInputRef = useRef(null)
   activeRef.current = active
+
+  const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥', '🎉', '👏']
 
   const loadConvos = useCallback(async () => {
     if (!user) return
@@ -81,6 +90,21 @@ export default function Messages() {
     setMessages(data ?? [])
     setLoadingMsgs(false)
 
+    // Load reactions
+    if (data && data.length > 0) {
+      const { data: reactionsData } = await supabase
+        .from('message_reactions')
+        .select('*, user:user_id(username)')
+        .in('message_id', data.map(m => m.id))
+      
+      const grouped = {}
+      reactionsData?.forEach(r => {
+        if (!grouped[r.message_id]) grouped[r.message_id] = []
+        grouped[r.message_id].push(r)
+      })
+      setReactions(grouped)
+    }
+
     // Mark unread messages as read
     markRead(convo.id)
 
@@ -103,6 +127,11 @@ export default function Messages() {
         filter: `conversation_id=eq.${convo.id}`
       }, (payload) => {
         setMessages(prev => prev.map(m => m.id === payload.new.id ? payload.new : m))
+      })
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'message_reactions'
+      }, () => {
+        loadReactions(convo.id)
       })
       .subscribe()
   }
@@ -170,17 +199,121 @@ export default function Messages() {
       conversation_id: active.id,
       sender_id: user.id,
       content,
+      reply_to_id: replyTo?.id || null,
     })
     if (error) {
       toast.error('Failed to send: ' + error.message)
-      setText(content) // restore text on failure
+      setText(content)
       setSending(false)
       return
     }
     await supabase.from('conversations')
       .update({ last_message_at: new Date().toISOString(), last_message: content })
       .eq('id', active.id)
+    setReplyTo(null)
     setSending(false)
+  }
+
+  async function toggleReaction(messageId, emoji) {
+    const msgReactions = reactions[messageId] || []
+    const existing = msgReactions.find(r => r.emoji === emoji && r.user_id === user.id)
+    
+    if (existing) {
+      await supabase.from('message_reactions').delete().eq('id', existing.id)
+    } else {
+      await supabase.from('message_reactions').insert({
+        message_id: messageId,
+        user_id: user.id,
+        emoji,
+      })
+    }
+    loadReactions(active.id)
+    setShowEmojiPicker(null)
+  }
+
+  async function loadReactions(convoId) {
+    const { data } = await supabase
+      .from('message_reactions')
+      .select('*, user:user_id(username)')
+      .in('message_id', messages.map(m => m.id))
+    
+    const grouped = {}
+    data?.forEach(r => {
+      if (!grouped[r.message_id]) grouped[r.message_id] = []
+      grouped[r.message_id].push(r)
+    })
+    setReactions(grouped)
+  }
+
+  async function startEdit(msg) {
+    setEditingMsg(msg)
+    setEditText(msg.content)
+  }
+
+  async function saveEdit() {
+    if (!editText.trim() || !editingMsg) return
+    const { error } = await supabase
+      .from('direct_messages')
+      .update({ content: editText.trim(), edited_at: new Date().toISOString() })
+      .eq('id', editingMsg.id)
+    
+    if (error) {
+      toast.error('Failed to edit')
+      return
+    }
+    setMessages(prev => prev.map(m => 
+      m.id === editingMsg.id ? { ...m, content: editText.trim(), edited_at: new Date().toISOString() } : m
+    ))
+    setEditingMsg(null)
+    setEditText('')
+  }
+
+  async function uploadFile(file) {
+    if (!file || !active?.id) return
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File too large (max 10MB)')
+      return
+    }
+
+    setUploading(true)
+    const ext = file.name.split('.').pop()
+    const fileName = `${user.id}/${Date.now()}.${ext}`
+    
+    const { error: uploadError } = await supabase.storage
+      .from('chat-attachments')
+      .upload(fileName, file)
+    
+    if (uploadError) {
+      toast.error('Upload failed: ' + uploadError.message)
+      setUploading(false)
+      return
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('chat-attachments')
+      .getPublicUrl(fileName)
+
+    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext.toLowerCase())
+    
+    const { error } = await supabase.from('direct_messages').insert({
+      conversation_id: active.id,
+      sender_id: user.id,
+      content: file.name,
+      attachment_url: publicUrl,
+      attachment_type: isImage ? 'image' : 'file',
+      reply_to_id: replyTo?.id || null,
+    })
+
+    if (error) {
+      toast.error('Failed to send')
+    } else {
+      await supabase.from('conversations')
+        .update({ last_message_at: new Date().toISOString(), last_message: `📎 ${file.name}` })
+        .eq('id', active.id)
+      setReplyTo(null)
+    }
+    
+    setUploading(false)
   }
 
   function getOther(convo) {
@@ -304,23 +437,120 @@ export default function Messages() {
                     : messages.map((m, i) => {
                       const isMe = m.sender_id === user.id
                       const showTime = i === 0 || (new Date(m.created_at) - new Date(messages[i - 1].created_at)) > 5 * 60 * 1000
+                      const msgReactions = reactions[m.id] || []
+                      const replyToMsg = m.reply_to_id ? messages.find(msg => msg.id === m.reply_to_id) : null
+                      
                       return (
                         <div key={m.id}>
                           {showTime && (
                             <div className="text-center text-[10px] text-muted my-2">{timeAgo(m.created_at)}</div>
                           )}
-                          <div className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm ${isMe ? 'bg-primary text-white rounded-br-sm' : 'bg-surface2 text-white rounded-bl-sm'}`}>
-                              {m.is_deleted
-                                ? <p className="italic text-white/40">Message deleted</p>
-                                : <p className="break-words">{m.content}</p>
-                              }
-                              {isMe && (
-                                <div className="flex justify-end mt-0.5">
-                                  {m.is_read
-                                    ? <CheckCheck size={11} className="text-accent" />
-                                    : <Check size={11} className="text-white/40" />
-                                  }
+                          <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} group`}>
+                            <div className={`max-w-[75%] ${isMe ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
+                              {/* Reply preview */}
+                              {replyToMsg && (
+                                <div className="text-[10px] text-muted px-3 py-1 bg-surface2/50 rounded-lg border-l-2 border-primary/50">
+                                  Replying to: {replyToMsg.content?.slice(0, 50)}...
+                                </div>
+                              )}
+                              
+                              <div className={`px-4 py-2.5 rounded-2xl text-sm ${isMe ? 'bg-primary text-white rounded-br-sm' : 'bg-surface2 text-white rounded-bl-sm'}`}>
+                                {m.is_deleted ? (
+                                  <p className="italic text-white/40">Message deleted</p>
+                                ) : m.attachment_url ? (
+                                  <div>
+                                    {m.attachment_type === 'image' ? (
+                                      <img src={m.attachment_url} alt={m.content} className="max-w-full rounded-lg mb-1" />
+                                    ) : (
+                                      <a href={m.attachment_url} target="_blank" rel="noreferrer" 
+                                        className="flex items-center gap-2 text-accent hover:underline">
+                                        <Download size={14} />
+                                        {m.content}
+                                      </a>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className="break-words">{m.content}</p>
+                                )}
+                                {m.edited_at && (
+                                  <span className="text-[9px] opacity-60 ml-1">(edited)</span>
+                                )}
+                                {isMe && !m.attachment_url && (
+                                  <div className="flex justify-end mt-0.5">
+                                    {m.is_read
+                                      ? <CheckCheck size={11} className="text-accent" />
+                                      : <Check size={11} className="text-white/40" />
+                                    }
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Reactions */}
+                              {msgReactions.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {Object.entries(
+                                    msgReactions.reduce((acc, r) => {
+                                      acc[r.emoji] = acc[r.emoji] || []
+                                      acc[r.emoji].push(r)
+                                      return acc
+                                    }, {})
+                                  ).map(([emoji, reacts]) => {
+                                    const iReacted = reacts.some(r => r.user_id === user.id)
+                                    return (
+                                      <button
+                                        key={emoji}
+                                        onClick={() => toggleReaction(m.id, emoji)}
+                                        className={`text-xs px-2 py-0.5 rounded-full transition-colors ${
+                                          iReacted ? 'bg-primary/30 border border-primary' : 'bg-surface2 border border-white/10'
+                                        }`}
+                                        title={reacts.map(r => r.user?.username).join(', ')}
+                                      >
+                                        {emoji} {reacts.length}
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              )}
+
+                              {/* Action buttons (show on hover) */}
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                <button
+                                  onClick={() => setShowEmojiPicker(showEmojiPicker === m.id ? null : m.id)}
+                                  className="text-[10px] text-muted hover:text-white px-2 py-1 rounded hover:bg-surface2"
+                                  title="React"
+                                >
+                                  <Smile size={12} />
+                                </button>
+                                <button
+                                  onClick={() => setReplyTo(m)}
+                                  className="text-[10px] text-muted hover:text-white px-2 py-1 rounded hover:bg-surface2"
+                                  title="Reply"
+                                >
+                                  <Reply size={12} />
+                                </button>
+                                {isMe && !m.attachment_url && (
+                                  <button
+                                    onClick={() => startEdit(m)}
+                                    className="text-[10px] text-muted hover:text-white px-2 py-1 rounded hover:bg-surface2"
+                                    title="Edit"
+                                  >
+                                    <Edit2 size={12} />
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Emoji picker */}
+                              {showEmojiPicker === m.id && (
+                                <div className="flex gap-1 bg-surface border border-white/10 rounded-lg p-2 shadow-xl">
+                                  {QUICK_EMOJIS.map(emoji => (
+                                    <button
+                                      key={emoji}
+                                      onClick={() => toggleReaction(m.id, emoji)}
+                                      className="text-lg hover:scale-125 transition-transform"
+                                    >
+                                      {emoji}
+                                    </button>
+                                  ))}
                                 </div>
                               )}
                             </div>
@@ -333,25 +563,81 @@ export default function Messages() {
               </div>
 
               {/* Input */}
-              <div className="p-3 border-t border-white/[0.06] flex gap-2">
-                <input
-                  value={text}
-                  onChange={e => setText(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-                  placeholder="Type a message..."
-                  maxLength={2000}
-                  className="flex-1 bg-surface2 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary"
-                />
-                <button
-                  onClick={sendMessage}
-                  disabled={!text.trim() || sending}
-                  className="bg-primary hover:bg-primary/80 disabled:opacity-40 text-white p-2.5 rounded-xl transition-colors flex-shrink-0"
-                >
-                  {sending
-                    ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    : <Send size={16} />
-                  }
-                </button>
+              <div className="border-t border-white/[0.06]">
+                {/* Reply preview */}
+                {replyTo && (
+                  <div className="px-3 pt-2 flex items-center justify-between bg-surface2/50">
+                    <div className="text-xs text-muted">
+                      <Reply size={10} className="inline mr-1" />
+                      Replying to: {replyTo.content?.slice(0, 50)}...
+                    </div>
+                    <button onClick={() => setReplyTo(null)} className="text-muted hover:text-white">
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
+
+                {/* Edit mode */}
+                {editingMsg ? (
+                  <div className="p-3 flex gap-2">
+                    <input
+                      value={editText}
+                      onChange={e => setEditText(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && !e.shiftKey) saveEdit()
+                        if (e.key === 'Escape') { setEditingMsg(null); setEditText('') }
+                      }}
+                      placeholder="Edit message..."
+                      className="flex-1 bg-surface2 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary"
+                    />
+                    <button onClick={saveEdit} className="bg-primary hover:bg-primary/80 text-white px-4 py-2.5 rounded-xl text-sm font-semibold">
+                      Save
+                    </button>
+                    <button onClick={() => { setEditingMsg(null); setEditText('') }} className="bg-surface2 hover:bg-surface text-white px-4 py-2.5 rounded-xl text-sm">
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-3 flex gap-2">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={e => e.target.files?.[0] && uploadFile(e.target.files[0])}
+                      className="hidden"
+                      accept="image/*,.pdf,.doc,.docx,.txt"
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="text-muted hover:text-white p-2.5 rounded-xl hover:bg-surface2 transition-colors"
+                      title="Attach file"
+                    >
+                      {uploading ? (
+                        <div className="w-4 h-4 border-2 border-muted border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Paperclip size={16} />
+                      )}
+                    </button>
+                    <input
+                      value={text}
+                      onChange={e => setText(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                      placeholder="Type a message..."
+                      maxLength={2000}
+                      className="flex-1 bg-surface2 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary"
+                    />
+                    <button
+                      onClick={sendMessage}
+                      disabled={!text.trim() || sending}
+                      className="bg-primary hover:bg-primary/80 disabled:opacity-40 text-white p-2.5 rounded-xl transition-colors flex-shrink-0"
+                    >
+                      {sending
+                        ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        : <Send size={16} />
+                      }
+                    </button>
+                  </div>
+                )}
               </div>
             </Card>
           )}
