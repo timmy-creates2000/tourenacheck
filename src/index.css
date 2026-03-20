@@ -1,2 +1,69 @@
-/* Tourena global styles — Tailwind handles everything via CDN in index.html */
-*, *::before, *::after { box-sizing: border-box; }
+/* Tourena global styles */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+*, *::before, *::after { 
+  box-sizing: border-box; 
+}
+
+body { 
+  background-color: #0A0A0F; 
+  color: #ffffff; 
+  font-family: 'Inter', sans-serif; 
+}
+
+.glow-purple { 
+  box-shadow: 0 0 20px rgba(124,58,237,0.4); 
+}
+
+.glow-gold { 
+  box-shadow: 0 0 20px rgba(245,158,11,0.4); 
+}
+
+.gradient-text { 
+  background: linear-gradient(135deg, #7C3AED, #F59E0B); 
+  -webkit-background-clip: text; 
+  -webkit-text-fill-color: transparent; 
+  background-clip: text; 
+}
+
+.border-subtle { 
+  border-color: rgba(255,255,255,0.08); 
+}
+
+::-webkit-scrollbar { 
+  width: 6px; 
+} 
+
+::-webkit-scrollbar-track { 
+  background: #12121A; 
+}
+
+::-webkit-scrollbar-thumb { 
+  background: #7C3AED; 
+  border-radius: 3px; 
+}
+
+.scrollbar-hide::-webkit-scrollbar { 
+  display: none; 
+}
+
+.scrollbar-hide { 
+  -ms-overflow-style: none; 
+  scrollbar-width: none; 
+}
+
+@keyframes pulse-gold { 
+  0%,100% { box-shadow: 0 0 10px rgba(245,158,11,0.4); } 
+  50% { box-shadow: 0 0 25px rgba(245,158,11,0.8); } 
+}
+
+.badge-pulse { 
+  animation: pulse-gold 2s infinite; 
+}
+
+/* Safe area for notched phones */
+.safe-bottom { 
+  padding-bottom: env(safe-area-inset-bottom, 0px); 
+}
