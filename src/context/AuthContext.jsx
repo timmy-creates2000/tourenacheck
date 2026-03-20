@@ -146,7 +146,12 @@ export function AuthProvider({ children }) {
       .from('users').select('id').eq('username', username).single()
     if (existing) throw new Error('Username already taken')
     const { data, error } = await supabase.auth.signUp({
-      email, password, options: { data: { username } },
+      email, 
+      password, 
+      options: { 
+        data: { username },
+        emailRedirectTo: `${window.location.origin}/`
+      },
     })
     if (error) throw error
     if (referralCode && data.user) {
@@ -178,14 +183,28 @@ export function AuthProvider({ children }) {
     const isEmail = identifier.includes('@')
     if (isEmail) {
       const { data, error } = await supabase.auth.signInWithPassword({ email: identifier, password })
-      if (error) throw error
+      if (error) {
+        // Provide better error messages
+        if (error.message.includes('Invalid login credentials')) {
+          throw new Error('Invalid email or password')
+        }
+        throw error
+      }
       return data
     } else {
       const { data: userData, error: userError } = await supabase
         .from('users').select('email').eq('username', identifier).single()
-      if (userError || !userData) throw new Error('Username not found')
+      if (userError || !userData) {
+        throw new Error('Invalid username or password')
+      }
       const { data, error } = await supabase.auth.signInWithPassword({ email: userData.email, password })
-      if (error) throw error
+      if (error) {
+        // Provide better error messages
+        if (error.message.includes('Invalid login credentials')) {
+          throw new Error('Invalid username or password')
+        }
+        throw error
+      }
       return data
     }
   }

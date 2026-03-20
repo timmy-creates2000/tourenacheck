@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { Search, Users, Trophy } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -41,8 +42,17 @@ export default function Discover() {
   }, [filters])
 
   useEffect(() => {
-    if (activeTab === 'players') fetchPlayers()
+    if (activeTab === 'players') {
+      fetchPlayers()
+      if (user) fetchFollowing()
+    }
   }, [activeTab, playerSearch])
+
+  async function fetchFollowing() {
+    if (!user) return
+    const { data } = await supabase.from('follows').select('following_id').eq('follower_id', user.id)
+    setFollowing(new Set(data?.map(f => f.following_id) ?? []))
+  }
 
   async function fetchPlayers() {
     setPlayersLoading(true)
