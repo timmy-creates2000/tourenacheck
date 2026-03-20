@@ -49,43 +49,81 @@ export function AuthProvider({ children }) {
   }
 
   const fetchProfile = useCallback(async (userId) => {
+    if (!userId) return null
+    
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .single()
+      
+      if (error) {
+        console.error('Fetch profile error:', error)
+        return null
+      }
+      
       if (data) {
         setAndCacheProfile(data)
         return data
       }
-    } catch (_) {}
+    } catch (err) {
+      console.error('Fetch profile exception:', err)
+    }
     return null
   }, [])
 
   useEffect(() => {
     let mounted = true
-    // Only start timeout if we don't have cached data (i.e., loading is true)
+    let isInitializing = true
+    
+    // Only start timeout if we don't have cached data
     if (!hasCachedUser.current) startLoadingTimeout()
 
-    // Fast path: check session — if none, clear cache immediately
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!mounted) return
-      if (!session) {
-        setAndCacheUser(null)
-        setAndCacheProfile(null)
-        stopLoading()
-      }
-      // If session exists, onAuthStateChange will handle it
-    })
+    // Initialize auth state
+    async function initAuth() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        if (!mounted) return
+        
+        if (!session) {
+          setAndCacheUser(null)
+          setAndCacheProfile(null)
+          stopLoading()
+          return
+        }
 
+        // Have session - set user and fetch profile
+        setAndCacheUser(session.user)
+        await fetchProfile(session.user.id)
+        stopLoading()
+      } catch (err) {
+        console.error('Auth init error:', err)
+        stopLoading()
+      } finally {
+        isInitializing = false
+      }
+    }
+
+    initAuth()
+
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Skip initial SIGNED_IN event during initialization
+      if (isInitializing && event === 'SIGNED_IN') return
+      
       if (!mounted) return
+      
       try {
         const currentUser = session?.user ?? null
         setAndCacheUser(currentUser)
+        
         if (currentUser) {
-          if (event === 'SIGNED_IN') await ensureProfile(currentUser)
+          // Only ensure profile on actual sign in, not on page load
+          if (event === 'SIGNED_IN') {
+            await ensureProfile(currentUser)
+          }
           await fetchProfile(currentUser.id)
         } else {
           setAndCacheProfile(null)
@@ -123,22 +161,54 @@ export function AuthProvider({ children }) {
   }, [user])
 
   async function ensureProfile(authUser) {
-    const { data: existing } = await supabase
-      .from('users').select('id').eq('id', authUser.id).single()
-    if (existing) return
-    const meta = authUser.user_metadata ?? {}
-    const username = meta.username
-      || meta.full_name?.replace(/\s+/g, '_').toLowerCase()
-      || authUser.email?.split('@')[0]
-      || `user_${authUser.id.slice(0, 6)}`
-    await supabase.from('users').upsert({
-      id: authUser.id, email: authUser.email, username,
-      display_name: meta.full_name ?? null, avatar_url: meta.avatar_url ?? null,
-      role: 'player', referral_code: Math.random().toString(36).substring(2, 10).toUpperCase(),
-      account_status: 'approved', coin_balance: 0, preferred_currency: 'NGN',
-    }, { onConflict: 'id', ignoreDuplicates: true })
-    await supabase.from('player_stats')
-      .upsert({ user_id: authUser.id }, { onConflict: 'user_id', ignoreDuplicates: true })
+    try {
+      // Check if profile exists
+      const { data: existing, error: checkError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', authUser.id)
+        .maybeSingle()
+      
+      if (checkError) {
+        console.error('Check profile error:', checkError)
+      }
+      
+      if (existing) return // Profile already exists
+      
+      // Create new profile
+      const meta = authUser.user_metadata ?? {}
+      const username = meta.username
+        || meta.full_name?.replace(/\s+/g, '_').toLowerCase()
+        || authUser.email?.split('@')[0]
+        || `user_${authUser.id.slice(0, 6)}`
+      
+      const { error: upsertError } = await supabase.from('users').upsert({
+        id: authUser.id, 
+        email: authUser.email, 
+        username,
+        display_name: meta.full_name ?? null, 
+        avatar_url: meta.avatar_url ?? null,
+        role: 'player', 
+        referral_code: Math.random().toString(36).substring(2, 10).toUpperCase(),
+        account_status: 'approved', 
+        coin_balance: 0, 
+        preferred_currency: 'NGN',
+      }, { onConflict: 'id', ignoreDuplicates: true })
+      
+      if (upsertError) {
+        console.error('Upsert profile error:', upsertError)
+      }
+      
+      // Create player stats
+      const { error: statsError } = await supabase.from('player_stats')
+        .upsert({ user_id: authUser.id }, { onConflict: 'user_id', ignoreDuplicates: true })
+      
+      if (statsError) {
+        console.error('Upsert stats error:', statsError)
+      }
+    } catch (err) {
+      console.error('Ensure profile exception:', err)
+    }
   }
 
   async function signUp({ email, password, username, referralCode }) {
