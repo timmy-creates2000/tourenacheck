@@ -3,27 +3,10 @@ import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext(null)
 
-const PROFILE_KEY = 'tourena_profile'
-const USER_KEY    = 'tourena_user'
-
-function saveToStorage(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)) } catch (_) {}
-}
-function loadFromStorage(key) {
-  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null } catch (_) { return null }
-}
-function clearStorage() {
-  try { localStorage.removeItem(PROFILE_KEY); localStorage.removeItem(USER_KEY) } catch (_) {}
-}
-
 export function AuthProvider({ children }) {
-  // Seed state from localStorage immediately — no blank flash on refresh
-  // Use refs to read once at mount time only
-  const hasCachedUser = useRef(!!loadFromStorage(USER_KEY))
-  const [user, setUser]       = useState(() => loadFromStorage(USER_KEY))
-  const [profile, setProfile] = useState(() => loadFromStorage(PROFILE_KEY))
-  // If we have cached data, start as NOT loading — app renders immediately
-  const [loading, setLoading] = useState(!hasCachedUser.current)
+  const [user, setUser] = useState(null)
+  const [profile, setProfile] = useState(null)
+  const [loading, setLoading] = useState(true)
   const loadingTimerRef = useRef(null)
 
   function startLoadingTimeout() {
@@ -34,18 +17,6 @@ export function AuthProvider({ children }) {
   function stopLoading() {
     if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current)
     setLoading(false)
-  }
-
-  function setAndCacheUser(u) {
-    setUser(u)
-    if (u) saveToStorage(USER_KEY, u)
-    else clearStorage()
-  }
-
-  function setAndCacheProfile(p) {
-    setProfile(p)
-    if (p) saveToStorage(PROFILE_KEY, p)
-    else localStorage.removeItem(PROFILE_KEY)
   }
 
   const fetchProfile = useCallback(async (userId) => {
@@ -64,7 +35,7 @@ export function AuthProvider({ children }) {
       }
       
       if (data) {
-        setAndCacheProfile(data)
+        setProfile(data)
         return data
       }
     } catch (err) {
@@ -77,8 +48,7 @@ export function AuthProvider({ children }) {
     let mounted = true
     let isInitializing = true
     
-    // Only start timeout if we don't have cached data
-    if (!hasCachedUser.current) startLoadingTimeout()
+    startLoadingTimeout()
 
     // Initialize auth state
     async function initAuth() {
@@ -88,14 +58,14 @@ export function AuthProvider({ children }) {
         if (!mounted) return
         
         if (!session) {
-          setAndCacheUser(null)
-          setAndCacheProfile(null)
+          setUser(null)
+          setProfile(null)
           stopLoading()
           return
         }
 
         // Have session - set user and fetch profile
-        setAndCacheUser(session.user)
+        setUser(session.user)
         await fetchProfile(session.user.id)
         stopLoading()
       } catch (err) {
@@ -117,7 +87,7 @@ export function AuthProvider({ children }) {
       
       try {
         const currentUser = session?.user ?? null
-        setAndCacheUser(currentUser)
+        setUser(currentUser)
         
         if (currentUser) {
           // Only ensure profile on actual sign in, not on page load
@@ -126,7 +96,7 @@ export function AuthProvider({ children }) {
           }
           await fetchProfile(currentUser.id)
         } else {
-          setAndCacheProfile(null)
+          setProfile(null)
         }
       } catch (err) {
         console.error('Auth state change error:', err)
@@ -150,11 +120,7 @@ export function AuthProvider({ children }) {
       .on('postgres_changes', {
         event: 'UPDATE', schema: 'public', table: 'users', filter: `id=eq.${user.id}`
       }, (payload) => {
-        setProfile(prev => {
-          const updated = { ...prev, ...payload.new }
-          saveToStorage(PROFILE_KEY, updated)
-          return updated
-        })
+        setProfile(prev => ({ ...prev, ...payload.new }))
       })
       .subscribe()
     return () => supabase.removeChannel(channel)
@@ -280,8 +246,6 @@ export function AuthProvider({ children }) {
   }
 
   async function signOut() {
-    // Clear cache and state immediately — don't wait for Supabase
-    clearStorage()
     setUser(null)
     setProfile(null)
     await supabase.auth.signOut()
